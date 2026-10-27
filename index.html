@@ -1,0 +1,2590 @@
+<!doctype html><html><head><meta charset=utf8><meta name="robots" content="noindex, nofollow"><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Pipeline Canvas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* React Flow 11 base styles (subset of reactflow/dist/base.css) */
+.react-flow{direction:ltr}
+.react-flow__container{position:absolute;width:100%;height:100%;top:0;left:0}
+.react-flow__pane{z-index:1;cursor:grab}
+.react-flow__pane.dragging{cursor:grabbing}
+.react-flow__viewport{transform-origin:0 0;z-index:2;pointer-events:none}
+.react-flow__renderer{z-index:4}
+.react-flow__selection{z-index:6}
+.react-flow .react-flow__edges{pointer-events:none;overflow:visible}
+.react-flow__edge-path,.react-flow__connection-path{stroke:#b1b1b7;stroke-width:1;fill:none}
+.react-flow__edge{pointer-events:visibleStroke}
+.react-flow__edge.animated path{stroke-dasharray:5;animation:dashdraw .5s linear infinite}
+.react-flow__edge.animated path.react-flow__edge-interaction{stroke-dasharray:none;animation:none}
+.react-flow__connection{pointer-events:none}
+.react-flow__nodes{pointer-events:none;transform-origin:0 0}
+.react-flow__node{position:absolute;user-select:none;pointer-events:all;transform-origin:0 0;box-sizing:border-box;cursor:grab}
+.react-flow__node.dragging{cursor:grabbing}
+.react-flow__nodesselection{z-index:3;transform-origin:left top;pointer-events:none}
+.react-flow__handle{position:absolute;pointer-events:none;min-width:5px;min-height:5px;background-color:#333}
+.react-flow__handle-left{top:50%;left:-4px;transform:translate(0,-50%)}
+.react-flow__handle-right{right:-4px;top:50%;transform:translate(0,-50%)}
+.react-flow__panel{position:absolute;z-index:5;margin:15px}
+.react-flow__background{position:absolute;inset:0;pointer-events:none}
+@keyframes dashdraw{from{stroke-dashoffset:10}}
+.react-flow__edgelabel-renderer{position:absolute;width:100%;height:100%;pointer-events:none;user-select:none}
+/* Layout: product shell — dark icon rail · white header · dotted canvas with floating settings card and right drawer.
+   Single light theme on purpose: this replicates a light-only data tool. */
+:root {
+  color-scheme: light;
+  --ink: #1D2939; --ink-2: #344054; --ink-3: #475467; --ink-4: #667085; --ink-5: #98A2B3;
+  --line: #D0D5DD; --line-2: #E4E7EC; --line-3: #F2F4F7;
+  --canvas: #F3F4F7; --surface: #FFFFFF; --surface-2: #F9FAFB;
+  --rail: #0F1526; --rail-2: #1F2A40; --rail-on: #53389E;
+  --brand: #7F56D9; --brand-hover: #6941C6; --brand-50: #F9F5FF; --brand-100: #F4EBFF; --brand-200: #E9D7FE;
+  --ok: #079455; --ok-bg: #ECFDF3; --ok-dot: #17B26A;
+  --err: #D92D20; --err-bg: #FEF3F2; --err-dot: #F04438;
+  --warn: #B54708; --warn-bg: #FFFAEB;
+  --font: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+  --shadow-xs: 0 1px 2px rgba(16,24,40,.05);
+  --shadow-md: 0 4px 8px -2px rgba(16,24,40,.08), 0 2px 4px -2px rgba(16,24,40,.04);
+  --shadow-lg: 0 20px 24px -4px rgba(16,24,40,.08), 0 8px 8px -4px rgba(16,24,40,.03);
+  --r: 6px;
+}
+html, body, #root { height: 100%; }
+body { background: var(--canvas); color: var(--ink); font-family: var(--font); font-size: 14px; letter-spacing: -0.01em; overflow: hidden; }
+button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; padding: 0; }
+button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--brand-200); outline-offset: 1px; }
+b { font-weight: 600; }
+
+.app { display: grid; grid-template-columns: 72px 1fr; height: 100%; min-width: 0; }
+
+/* rail */
+.sidebar { background: var(--rail); display: flex; flex-direction: column; align-items: center; gap: 4px; padding-block: 18px 16px; }
+.logo { height: 28px; display: grid; place-items: center; margin-bottom: 12px; }
+.avatar { width: 32px; height: 32px; border-radius: 6px; background: #344054; color: #fff; font-size: 12px; font-weight: 600; }
+.navsep { width: 32px; height: 1px; background: var(--rail-2); margin: 10px 0; }
+.navbtn { width: 34px; height: 32px; border-radius: 6px; color: #C4C9D4; display: grid; place-items: center; transition: background .15s, color .15s; }
+.navbtn:hover { background: var(--rail-2); color: #fff; }
+.navbtn.on { background: var(--rail-on); color: #fff; }
+.navfill { flex: 1; }
+
+.main { display: flex; flex-direction: column; min-width: 0; min-height: 0; position: relative; }
+
+/* header */
+.header { height: 64px; flex: none; background: var(--surface); border-bottom: 1px solid var(--line-2); display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-inline: 16px 20px; position: relative; z-index: 20; }
+.h-left, .h-right { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.h-right { gap: 12px; flex: none; }
+.h-title { font-size: 18px; font-weight: 700; letter-spacing: -0.02em; margin: 0 2px 0 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 280px; cursor: text; border-radius: 4px; padding: 2px 4px; }
+.h-title:hover { background: var(--line-3); }
+.h-title.static { cursor: default; padding-left: 8px; }
+.h-title.static:hover { background: none; }
+.rename { height: 32px; width: 260px; font-weight: 600; }
+.envtag { font-size: 10px; font-weight: 500; letter-spacing: .04em; color: var(--brand); background: var(--brand-50); border-radius: 4px; padding: 3px 6px; }
+.h-env { font-size: 12px; color: var(--ink-3); white-space: nowrap; }
+.pubbadge { font-size: 11px; font-weight: 500; border-radius: 999px; padding: 3px 8px; white-space: nowrap; margin-left: 4px; }
+.b-draft { background: var(--line-3); color: var(--ink-3); }
+.b-live { background: var(--ok-bg); color: var(--ok); }
+.b-changed { background: var(--warn-bg); color: var(--warn); }
+.h-meta { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--ink); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.h-meta.muted { color: var(--ink-4); }
+.linkish { border-radius: 4px; padding: 4px 6px; }
+.linkish:hover { background: var(--line-3); }
+
+/* buttons */
+.btn { height: 36px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 0 14px; border-radius: var(--r); font-size: 14px; font-weight: 600; white-space: nowrap; transition: background .15s, border-color .15s, color .15s; }
+.btn-pri { background: var(--brand); color: #fff; box-shadow: var(--shadow-xs); }
+.btn-pri:hover { background: var(--brand-hover); }
+.btn-pri:disabled { opacity: .8; cursor: progress; }
+.btn-sec { background: var(--surface); border: 1px solid var(--line); color: var(--ink-2); box-shadow: var(--shadow-xs); }
+.btn-sec:hover { background: var(--surface-2); }
+.btn-soft { background: var(--brand-50); color: var(--brand); }
+.btn-soft:hover { background: var(--brand-100); }
+.btn-danger { background: var(--err-dot); color: #fff; }
+.btn-danger:hover { background: var(--err); }
+.grow { flex: 1; }
+.split { position: relative; display: flex; gap: 1px; }
+.split .btn-soft:first-child { border-radius: var(--r) 0 0 var(--r); }
+.split .caret { border-radius: 0 var(--r) var(--r) 0; padding: 0 9px; }
+.iconbtn { width: 32px; height: 32px; display: grid; place-items: center; border-radius: var(--r); color: var(--ink-3); flex: none; }
+.iconbtn:hover { background: var(--line-3); color: var(--ink); }
+.iconbtn.sm { width: 24px; height: 24px; }
+.iconbtn.bordered { border: 1px solid var(--line); width: 36px; height: 36px; }
+.menu { position: absolute; top: calc(100% + 6px); left: 0; min-width: 190px; background: var(--surface); border: 1px solid var(--line-2); border-radius: 8px; box-shadow: var(--shadow-lg); padding: 4px; z-index: 50; }
+.menu.right { left: auto; right: 0; }
+.menu button { display: flex; align-items: center; gap: 9px; width: 100%; padding: 9px 10px; border-radius: 5px; font-size: 13px; color: var(--ink-2); text-align: left; }
+.menu button:hover { background: var(--surface-2); }
+.runpill { height: 36px; display: inline-flex; align-items: center; gap: 8px; padding: 0 6px 0 12px; border-radius: var(--r); background: var(--brand-50); color: var(--brand); font-weight: 600; font-size: 14px; }
+.stopbtn { width: 24px; height: 24px; border-radius: 5px; display: grid; place-items: center; background: #fff; border: 1px solid var(--line-2); }
+
+/* spinners */
+.spin { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--brand-200); border-top-color: var(--brand); animation: rot .8s linear infinite; flex: none; }
+.spin.sm { width: 10px; height: 10px; border-width: 1.5px; }
+.spin.light { border-color: rgba(255,255,255,.35); border-top-color: #fff; }
+@keyframes rot { to { transform: rotate(360deg); } }
+
+/* canvas */
+.canvas { flex: 1; position: relative; min-height: 0; background: var(--canvas); overflow: hidden; }
+.react-flow__handle.hdl { width: 7px; height: 7px; min-width: 0; min-height: 0; background: #667085; border: 0; }
+.react-flow__edge-path { stroke-linecap: round; }
+
+/* nodes */
+.node { position: relative; width: 200px; background: var(--surface); border: 1px solid var(--line); border-radius: 4px; transition: border-color .15s, box-shadow .15s; }
+.node:hover, .node.editing { border-color: var(--c); box-shadow: 0 0 0 3px color-mix(in srgb, var(--c) 12%, transparent); }
+.node.running { border-color: var(--brand-200); }
+.ticon { display: inline-grid; place-items: center; border-radius: 5px; flex: none; }
+.trig-main { height: 50px; display: flex; align-items: center; gap: 10px; padding: 0 12px; }
+.trig-name { font-size: 15px; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.task-main { display: flex; align-items: flex-start; gap: 8px; padding: 12px; min-height: 63px; box-sizing: border-box; }
+.task-text { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.task-type { font-size: 13px; color: var(--ink-4); }
+.task-name { font-size: 15px; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.task-foot { display: flex; align-items: center; justify-content: space-between; height: 28px; padding: 0 12px; background: var(--surface-2); border-top: 1px solid var(--line-3); border-radius: 0 0 4px 4px; }
+.viewlogs { font-size: 11px; color: var(--ink-4); }
+.viewlogs:hover { color: var(--brand); text-decoration: underline; }
+.st { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-variant-numeric: tabular-nums; }
+.st .dot { width: 7px; height: 7px; border-radius: 50%; }
+.st-ok { color: var(--ok); } .st-ok .dot { background: var(--ok-dot); }
+.st-fail { color: var(--err); } .st-fail .dot { background: var(--err-dot); }
+.st-ab { color: var(--ink-4); } .st-ab .dot { background: var(--ink-5); }
+.st-run { color: var(--brand); }
+.st-none { color: var(--ink-4); }
+
+.toolbar { position: absolute; top: -13px; right: 8px; display: flex; align-items: center; opacity: 0; transform: translateY(3px); transition: opacity .15s, transform .15s; pointer-events: none; }
+.node:hover .toolbar, .node.editing .toolbar { opacity: 1; transform: none; pointer-events: auto; }
+.tb { width: 24px; height: 24px; display: grid; place-items: center; background: var(--surface); border-radius: 5px; box-shadow: 0 1px 3px rgba(16,24,40,.14); }
+.tb:hover { background: color-mix(in srgb, currentColor 12%, #fff); }
+.tbline { width: 6px; height: 1px; background: color-mix(in srgb, var(--c) 50%, transparent); }
+
+.addafter { position: absolute; left: 100%; top: 26px; transform: translateY(-50%); display: flex; align-items: center; opacity: 0; pointer-events: none; transition: opacity .15s; }
+.task .addafter { top: 32px; }
+.addafter.show, .node:hover .addafter { opacity: 1; pointer-events: auto; }
+.addline { width: 18px; height: 1px; background: #98A2B3; }
+.addbtn { width: 26px; height: 26px; border-radius: 50%; background: var(--surface); border: 1px solid var(--line); display: grid; place-items: center; color: var(--ink-2); box-shadow: var(--shadow-xs); transition: background .15s, color .15s, border-color .15s; }
+.addbtn:hover { background: var(--brand); border-color: var(--brand); color: #fff; }
+.addafter.pulse .addbtn { animation: ring 1.8s ease-out infinite; background: var(--brand); border-color: var(--brand); color: #fff; }
+.addafter.pulse .addbtn:hover { background: var(--brand-hover); border-color: var(--brand-hover); color: #fff; }
+.addhint { margin-left: 8px; font-size: 12px; font-weight: 500; color: var(--brand); background: var(--brand-50); border: 1px solid var(--brand-100); padding: 3px 8px; border-radius: 999px; white-space: nowrap; }
+@keyframes ring { 0% { box-shadow: 0 0 0 0 rgba(127,86,217,.35); } 70% { box-shadow: 0 0 0 9px rgba(127,86,217,0); } 100% { box-shadow: 0 0 0 0 rgba(127,86,217,0); } }
+
+.ph { width: 260px; display: flex; align-items: center; gap: 12px; padding: 14px; border: 1.5px dashed #B9BFCC; border-radius: 6px; background: rgba(255,255,255,.7); cursor: pointer; transition: border-color .15s, background .15s; }
+.ph:hover { border-color: var(--brand); background: #fff; }
+.ph-plus { width: 36px; height: 36px; border-radius: 50%; background: var(--brand); color: #fff; display: grid; place-items: center; animation: ring 1.8s ease-out infinite; flex: none; }
+.ph-t { font-size: 15px; font-weight: 600; color: var(--ink); }
+.ph-s { font-size: 12px; color: var(--ink-4); margin-top: 2px; }
+
+/* zoom + fab */
+.zoombar { position: absolute; left: 16px; bottom: 16px; z-index: 5; display: flex; align-items: center; gap: 8px; }
+.zgroup { display: flex; align-items: center; gap: 4px; background: var(--surface); border: 1px solid var(--line-2); border-radius: 6px; padding: 2px 8px 2px 2px; box-shadow: var(--shadow-xs); }
+.zb { width: 26px; height: 26px; display: grid; place-items: center; border-radius: 5px; color: var(--ink-3); background: var(--surface); }
+.zoombar > .tipwrap > .zb { border: 1px solid var(--line-2); box-shadow: var(--shadow-xs); width: 30px; height: 30px; }
+.zb:hover { background: var(--line-3); color: var(--ink); }
+.zpct { font-size: 11px; color: var(--ink-4); width: 32px; text-align: right; font-variant-numeric: tabular-nums; }
+input[type=range] { -webkit-appearance: none; appearance: none; width: 64px; height: 3px; border-radius: 3px; background: linear-gradient(to right, var(--ink-4) var(--p), var(--line) var(--p)); margin: 0 2px; cursor: pointer; }
+input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 11px; height: 11px; border-radius: 50%; background: #475467; border: 2px solid #fff; box-shadow: 0 0 0 1px var(--line); }
+input[type=range]::-moz-range-thumb { width: 9px; height: 9px; border-radius: 50%; background: #475467; border: 2px solid #fff; }
+.fab { position: absolute; right: 20px; bottom: 20px; z-index: 5; width: 40px; height: 40px; border-radius: 50%; background: var(--brand); color: #fff; display: grid; place-items: center; box-shadow: var(--shadow-md); }
+.canvas > .tipwrap { position: absolute; right: 20px; bottom: 20px; z-index: 5; }
+.canvas > .tipwrap .fab { position: static; }
+.fab:hover { background: var(--brand-hover); }
+
+/* tooltips */
+.tipwrap { position: relative; display: inline-flex; }
+.tip { position: absolute; bottom: calc(100% + 7px); left: 50%; transform: translateX(-50%) translateY(2px); background: var(--surface); color: var(--ink-2); font-size: 12px; font-weight: 500; padding: 6px 9px; border-radius: 6px; box-shadow: 0 4px 12px rgba(16,24,40,.12), 0 0 0 1px rgba(16,24,40,.04); white-space: nowrap; opacity: 0; pointer-events: none; transition: opacity .12s, transform .12s; z-index: 60; letter-spacing: 0; }
+.tipwrap:hover > .tip, .tipwrap:focus-within > .tip { opacity: 1; transform: translateX(-50%); }
+.canvas > .tipwrap > .tip { left: auto; right: 0; transform: none; }
+.header .tipwrap > .tip, .sp-head .tipwrap > .tip { bottom: auto; top: calc(100% + 7px); }
+
+/* settings panel — docked right column (Figma 7302:53077) */
+.settings { position: absolute; top: 0; right: 0; bottom: 0; z-index: 6; width: 300px; background: var(--surface); border-left: 1px solid var(--line-2); display: flex; flex-direction: column; animation: slidein .2s cubic-bezier(.2,.8,.2,1); }
+.sp-scroll { flex: 1; overflow: auto; padding: 0 16px; }
+.sp-sec { padding-block: 16px; border-bottom: 1px solid var(--line-2); }
+.sp-sec:last-child { border-bottom: 0; }
+.sp-first { padding-top: 14px; }
+.sp-fields { display: flex; flex-direction: column; gap: 16px; }
+.sp-sechead { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 24px; }
+.sp-sechead .iconbtn { color: var(--ink-2); }
+.sp-lbl { font-size: 13px; color: var(--ink-2); }
+.sp-sectitle { font-size: 13px; font-weight: 600; color: var(--ink); }
+.sp-desc { margin: 4px 0 0; font-size: 11.5px; line-height: 1.45; color: var(--ink-4); }
+.sp-secbody { margin-top: 12px; }
+.sp-nextval { font-size: 13px; font-weight: 600; margin-top: 4px; font-variant-numeric: tabular-nums; }
+.sp-nextval.muted { color: var(--ink-3); font-weight: 500; }
+.sp-trig { display: flex; align-items: center; gap: 6px; margin-top: 8px; font-size: 12px; color: var(--ink-4); }
+.sp-trig .ticon { border-radius: 4px; }
+.settings .flabel { font-size: 13px; }
+.settings .inp, .settings .selwrap select { height: 34px; font-size: 13px; }
+.settings .row2 { gap: 12px; }
+.sp-num { width: 50%; }
+.envsel { position: relative; }
+.envsel .selwrap select { padding-right: 84px; }
+.envsel .envtag { position: absolute; right: 36px; top: 50%; transform: translateY(-50%); pointer-events: none; }
+.sp-foot { flex: none; margin: 0; padding: 12px 16px 16px; font-size: 11.5px; line-height: 1.45; color: var(--ink-5); }
+.settings .tipwrap > .tip { bottom: auto; top: calc(100% + 6px); left: auto; right: 0; transform: none; }
+.sp-open { position: absolute; top: 16px; right: 16px; z-index: 6; height: 34px; display: inline-flex; align-items: center; gap: 7px; padding: 0 12px; background: var(--surface); border: 1px solid var(--line-2); border-radius: 6px; box-shadow: var(--shadow-xs); font-size: 13px; font-weight: 500; color: var(--ink-2); }
+.sp-open:hover { background: var(--surface-2); }
+.canvas.docked > .tipwrap { right: 320px; }
+
+/* drawer */
+.drawer { position: absolute; top: 0; right: 0; bottom: 0; width: min(480px, 92%); z-index: 15; background: var(--surface); border-left: 1px solid var(--line-2); box-shadow: -12px 0 32px -8px rgba(16,24,40,.12); display: flex; flex-direction: column; animation: slidein .22s cubic-bezier(.2,.8,.2,1); }
+@keyframes slidein { from { transform: translateX(24px); opacity: 0; } }
+.dhead { display: flex; align-items: center; justify-content: space-between; padding: 12px 12px 12px 16px; border-bottom: 1px solid var(--line-2); flex: none; }
+.dtitle { display: flex; align-items: center; gap: 8px; font-size: 16px; font-weight: 700; min-width: 0; }
+.dtitle > span:not(.ticon):not(.dtag) { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dtag { font-size: 11px; font-weight: 500; color: var(--ink-3); background: var(--line-3); padding: 2px 7px; border-radius: 999px; }
+.tabs { display: flex; gap: 4px; padding: 0 16px; border-bottom: 1px solid var(--line-2); flex: none; }
+.tabs button { padding: 11px 14px 9px; font-size: 14px; font-weight: 500; color: var(--ink-4); border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.tabs button.on { color: var(--ink); font-weight: 600; border-bottom-color: var(--brand); }
+.dbody { flex: 1; overflow: auto; padding: 20px 16px; display: flex; flex-direction: column; gap: 18px; }
+.dbody.list { padding: 8px 8px 16px; gap: 0; }
+.dsec { padding: 8px 0; }
+.dsec-t { font-size: 12px; color: var(--ink-4); padding: 6px 8px 8px; font-weight: 500; }
+.dsep { border: 0; border-top: 1px solid var(--line-2); margin: 6px 8px; }
+.pick { width: 100%; display: flex; align-items: center; gap: 12px; padding: 10px 8px; border-radius: 6px; text-align: left; transition: background .12s; }
+.pick:hover { background: var(--surface-2); }
+.pick:hover > svg { transform: translateX(2px); }
+.pick > svg { transition: transform .12s; flex: none; }
+.pick-text { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.pick-t { font-size: 14px; font-weight: 600; }
+.pick-d { font-size: 12px; color: var(--ink-4); }
+.dnote { font-size: 12px; color: var(--ink-4); padding: 8px; margin: 4px 0 0; border-top: 1px solid var(--line-3); }
+.dfoot { display: flex; gap: 12px; padding: 14px 16px; border-top: 1px solid var(--line-2); flex: none; }
+.dfoot .btn { height: 40px; }
+
+/* fields */
+.field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.flabel { font-size: 14px; color: var(--ink-2); display: flex; align-items: center; gap: 4px; }
+.req { color: var(--err-dot); }
+.fhint { font-size: 12px; color: var(--ink-4); line-height: 1.4; }
+.ferr { font-size: 12px; color: var(--err); display: flex; align-items: center; gap: 5px; }
+.inp { height: 38px; width: 100%; box-sizing: border-box; border: 1px solid var(--line); border-radius: 4px; padding: 0 12px; font: 14px var(--font); color: var(--ink); background: var(--surface); transition: border-color .15s, box-shadow .15s; }
+.inp::placeholder { color: var(--ink-5); }
+.inp:focus { outline: none; border-color: #B692F6; box-shadow: 0 0 0 3px var(--brand-100); }
+.inp.invalid, .selwrap.invalid select { border-color: #FDA29B; }
+.inp.mono { font-family: var(--mono); font-size: 13px; }
+.inp[readonly] { background: var(--surface-2); color: var(--ink-3); }
+.selwrap { position: relative; }
+.selwrap select { appearance: none; -webkit-appearance: none; height: 38px; width: 100%; border: 1px solid var(--line); border-radius: 4px; padding: 0 36px 0 12px; font: 14px var(--font); color: var(--ink); background: var(--surface); cursor: pointer; }
+.selwrap select.empty { color: var(--ink-5); }
+.selwrap select:focus { outline: none; border-color: #B692F6; box-shadow: 0 0 0 3px var(--brand-100); }
+.selwrap svg { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); pointer-events: none; }
+.fgroup { display: flex; flex-direction: column; gap: 16px; }
+.fgroup-t { font-size: 16px; font-weight: 700; margin-top: 4px; }
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.seg { display: grid; grid-template-columns: 1fr 1fr; background: var(--line-3); border-radius: 6px; padding: 4px; gap: 4px; }
+.seg button { height: 32px; border-radius: 4px; font-size: 13px; color: var(--ink-5); }
+.seg button.on { background: var(--surface); color: var(--ink-2); box-shadow: 0 1px 3px rgba(16,24,40,.1); }
+.callout { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border-radius: 6px; font-size: 13px; color: var(--ink-3); line-height: 1.45; }
+.callout > svg { flex: none; margin-top: 2px; }
+.c-brand { background: var(--brand-50); }
+.c-brand > svg { color: var(--brand); fill: var(--brand); }
+.callout b { color: var(--ink); }
+.callout-sub { display: block; margin-top: 3px; color: var(--ink-4); font-size: 12px; font-variant-numeric: tabular-nums; }
+.copyrow { display: flex; gap: 8px; }
+.copyrow .btn { height: 38px; }
+.logs { margin: 0; background: #101828; color: #D0D5DD; font: 12px/1.7 var(--mono); padding: 14px; border-radius: 6px; white-space: pre-wrap; word-break: break-word; }
+.empty-logs { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 6px; padding: 56px 24px; }
+.el-t { font-weight: 600; margin-top: 6px; }
+.el-s { font-size: 13px; color: var(--ink-4); max-width: 280px; margin-bottom: 10px; }
+
+/* modals */
+.scrim { position: fixed; inset: 0; z-index: 100; background: rgba(16,24,40,.45); display: grid; place-items: center; padding: 16px; animation: fade .15s ease-out; }
+@keyframes fade { from { opacity: 0; } }
+.modal { max-width: 100%; background: var(--surface); border-radius: 12px; box-shadow: var(--shadow-lg); padding: 20px 24px 24px; box-sizing: border-box; animation: pop .18s cubic-bezier(.2,.8,.2,1); }
+@keyframes pop { from { transform: translateY(6px) scale(.98); opacity: 0; } }
+.m-head { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 14px; }
+.m-icon { width: 44px; height: 44px; border-radius: 50%; background: var(--brand-100); box-shadow: 0 0 0 6px var(--brand-50); display: grid; place-items: center; color: var(--brand); }
+.m-icon.danger { background: #FEE4E2; box-shadow: 0 0 0 6px var(--err-bg); color: var(--err); }
+.m-title { font-size: 18px; font-weight: 600; margin: 4px 0 6px; letter-spacing: -0.02em; text-wrap: balance; }
+.m-sub { font-size: 14px; color: var(--ink-3); line-height: 1.5; margin: 0 0 20px; }
+.m-foot { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 24px; }
+.m-foot .btn { height: 40px; }
+.pubsum { border: 1px solid var(--line-2); border-radius: 8px; overflow: hidden; margin-top: 4px; }
+.pubsum div { display: flex; justify-content: space-between; gap: 12px; padding: 9px 12px; font-size: 13px; }
+.pubsum div + div { border-top: 1px solid var(--line-3); }
+.pubsum span { color: var(--ink-4); }
+.pubsum b { color: var(--ink); text-align: right; }
+
+/* idle (modal cancelled) */
+.idle { position: absolute; inset: 0; display: grid; place-items: center; padding: 16px; }
+.idle-card { max-width: 380px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.idle-card h2 { font-size: 18px; margin: 18px 0 2px; }
+.idle-card p { color: var(--ink-3); margin: 0 0 16px; line-height: 1.5; }
+
+/* toasts */
+.toasts { position: fixed; top: 76px; right: 20px; z-index: 120; display: flex; flex-direction: column; gap: 8px; align-items: flex-end; pointer-events: none; }
+.toast { pointer-events: auto; display: flex; align-items: center; gap: 9px; max-width: 420px; padding: 10px 12px; border-radius: 8px; background: var(--surface); border: 1px solid; box-shadow: var(--shadow-md); font-size: 13px; animation: pop .2s ease-out; }
+.t-success { border-color: #ABEFC6; color: var(--ok); background: #F6FEF9; }
+.t-error { border-color: #FECDCA; color: var(--err); background: #FFFBFA; }
+.t-info { border-color: var(--line-2); color: var(--ink-2); }
+.t-info > svg { color: var(--brand); }
+.toast > svg { flex: none; }
+.toast button { margin-left: 6px; font-weight: 600; color: var(--brand); padding: 2px 6px; border-radius: 4px; }
+.toast button:hover { background: var(--brand-50); }
+
+/* small-screen gate */
+.gate { position: fixed; inset: 0; z-index: 200; background: var(--surface); display: grid; place-items: center; padding: 24px; }
+.gate-card { max-width: 340px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.gate-card h2 { font-size: 20px; margin: 14px 0 4px; }
+.gate-card p { color: var(--ink-3); line-height: 1.5; margin: 0 0 18px; }
+
+@media (max-width: 1100px) { .h-env, .linkish { display: none; } }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; } }
+
+/* menus: extras */
+.menusep { height: 1px; background: var(--line-2); margin: 4px 2px; }
+.menu button.danger { color: var(--err); }
+.menu button.danger:hover { background: var(--err-bg); }
+.menu button:disabled { color: var(--ink-5); cursor: not-allowed; background: none; }
+.b-paused { background: #FEF0C7; color: var(--warn); }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* list header prompt */
+.newhint { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 500; color: var(--brand); white-space: nowrap; animation: nudge 1.6s ease-in-out infinite; }
+@keyframes nudge { 50% { transform: translateX(3px); } }
+.btn.ringing { animation: ring 1.8s ease-out infinite; }
+
+/* pipelines list (Figma 7238:51494) */
+.list { flex: 1; min-height: 0; display: flex; flex-direction: column; background: var(--surface); }
+.list-sub { display: flex; align-items: center; gap: 12px; padding: 14px 20px 10px; font-size: 13px; color: var(--ink-3); flex: none; }
+.list-sub b { color: var(--ink); font-variant-numeric: tabular-nums; }
+.failchip { display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 9px; border-radius: 999px; background: var(--err-bg); color: var(--err); font-size: 12px; font-weight: 500; }
+.failchip .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--err-dot); }
+.failchip:hover { background: #FEE4E2; }
+.linkbtn { font-size: 13px; font-weight: 500; color: var(--brand); }
+.linkbtn:hover { text-decoration: underline; }
+.tablewrap { flex: 1; min-height: 0; overflow: auto; padding: 0 20px 24px; }
+.ptable { width: 100%; min-width: 1180px; border-collapse: separate; border-spacing: 0; font-size: 13px; }
+.ptable thead { position: sticky; top: 0; z-index: 3; background: var(--surface); }
+.ptable thead th { background: var(--surface); }
+.ptable thead tr.filters th { padding: 2px 8px 10px; border-bottom: 1px solid var(--line-2); }
+.ptable th { text-align: left; font-weight: 600; color: var(--ink-3); padding: 0 8px; height: 38px; white-space: nowrap; }
+.th-btn { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 600; color: var(--ink-3); padding: 4px 4px; margin-left: -4px; border-radius: 4px; }
+.th-btn:hover { background: var(--line-3); color: var(--ink); }
+.th-arrow { display: inline-flex; opacity: 0; transition: opacity .12s; }
+.th-btn:hover .th-arrow { opacity: .45; }
+.th-btn.on { color: var(--ink); }
+.th-btn.on .th-arrow { opacity: 1; color: var(--brand); }
+.filters .selwrap select { height: 30px; font-size: 12px; padding-left: 9px; padding-right: 28px; }
+.filters .selwrap svg { right: 8px; width: 14px; height: 14px; }
+.fsearch { display: flex; align-items: center; gap: 6px; height: 30px; border: 1px solid var(--line); border-radius: 4px; padding: 0 8px; background: var(--surface); }
+.fsearch:focus-within { border-color: #B692F6; box-shadow: 0 0 0 3px var(--brand-100); }
+.fsearch input { flex: 1; min-width: 0; border: 0; outline: 0; font: 12px var(--font); color: var(--ink); background: transparent; }
+.fsearch input::placeholder { color: var(--ink-5); }
+.fsearch button { color: var(--ink-5); display: grid; place-items: center; }
+.ptable td { padding: 0 8px; height: 52px; border-bottom: 1px solid var(--line-3); color: var(--ink-2); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.ptable tbody tr { cursor: pointer; transition: background .1s; }
+.ptable tbody tr:hover td { background: var(--surface-2); }
+.ptable tbody tr:focus-visible { outline: 2px solid var(--brand-200); outline-offset: -2px; }
+.ptable tbody tr.is-failing td:first-child { box-shadow: inset 2px 0 0 var(--err-dot); }
+.c-bell { width: 36px; }
+.c-name { width: 24%; }
+.c-status { width: 110px; }
+.c-next { width: 150px; }
+.c-next.muted { color: var(--ink-5); }
+.c-date { width: 150px; color: var(--ink-3); }
+td.c-date { color: var(--ink-3); }
+.c-env { width: 180px; }
+.c-compute { width: 84px; }
+.c-runs { width: 116px; }
+.c-act { width: 40px; text-align: right; }
+.bellbtn { width: 26px; height: 26px; border-radius: 5px; display: grid; place-items: center; color: var(--ink-5); }
+.bellbtn.on { color: var(--brand); }
+.bellbtn:hover { background: var(--line-3); }
+.ptable td .tipwrap > .tip { left: 0; transform: none; }
+.namecell { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.namecell .ticon { border-radius: 4px; }
+.pname { font-weight: 500; color: var(--ink); overflow: hidden; text-overflow: ellipsis; }
+tbody tr:hover .pname { color: var(--brand); }
+.pstat { display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 8px; border-radius: 999px; font-size: 12px; font-weight: 500; }
+.pstat .dot { width: 6px; height: 6px; border-radius: 50%; }
+.ps-active { background: var(--ok-bg); color: var(--ok); } .ps-active .dot { background: var(--ok-dot); }
+.ps-paused { background: #FEF6EE; color: #B93815; } .ps-paused .dot { background: #EF6820; }
+.ps-draft { background: var(--line-3); color: var(--ink-3); } .ps-draft .dot { background: var(--ink-5); }
+.c-env .envtag { margin-right: 6px; }
+.envname { color: var(--ink-2); }
+.rrow { display: flex; align-items: center; gap: 4px; }
+.rr { width: 16px; height: 16px; border-radius: 50%; display: grid; place-items: center; flex: none; }
+.rr-ok { background: var(--ok-dot); }
+.rr-fail { background: var(--err-dot); }
+.rr-ab { background: var(--ink-5); }
+.rr-run { background: var(--brand-50); }
+.rr-empty { width: 12px; height: 2px; border-radius: 2px; background: var(--line-2); margin: 0 2px; flex: none; }
+.rowmenu { top: calc(100% + 2px); text-align: left; }
+.list-empty { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 8px; padding: 56px 24px; }
+.list-empty .el-s { margin-bottom: 8px; }
+
+/* dbt command list (Figma 7223:57038) */
+.cmdbox { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; padding: 10px; background: var(--surface-2); border: 1px solid var(--line-3); border-radius: 6px; }
+.cmdlist { display: flex; flex-direction: column; gap: 8px; width: 100%; }
+.cmdrow { display: flex; align-items: center; gap: 4px; border-radius: 5px; transition: box-shadow .12s, opacity .12s; }
+.cmdrow .inp { flex: 1; min-width: 0; height: 34px; }
+.cmdrow.dragging { opacity: .45; }
+.cmdrow.over { box-shadow: 0 -2px 0 var(--brand); }
+.cmdbtn { width: 26px; height: 26px; flex: none; display: grid; place-items: center; border-radius: 5px; color: var(--ink-3); }
+.cmdbtn:hover { background: var(--line-2); color: var(--ink); }
+.cmdbtn.grip { cursor: grab; color: var(--ink-5); }
+.cmdbtn.grip:active { cursor: grabbing; }
+.addcmd { height: 32px; font-size: 13px; font-weight: 500; padding: 0 12px; }
+
+/* pipeline header (Figma 7239:54704): back + segment left, name centred, actions right */
+.header.phead { display: grid; grid-template-columns: 1fr auto 1fr; }
+.phead .h-right { justify-content: flex-end; }
+.h-center { display: flex; align-items: center; gap: 10px; min-width: 0; justify-content: center; }
+.h-center .h-title { max-width: 360px; font-size: 17px; }
+.pubbadge { display: inline-flex; align-items: center; gap: 6px; }
+.pubbadge .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.b-draft .dot { background: var(--ink-5); }
+.tabseg { display: inline-flex; gap: 2px; padding: 3px; background: var(--line-3); border-radius: 8px; margin-left: 4px; }
+.tabseg button { height: 30px; padding: 0 14px; border-radius: 6px; font-size: 13px; font-weight: 500; color: var(--ink-4); transition: background .12s, color .12s; }
+.tabseg button:hover { color: var(--ink); }
+.tabseg button.on { background: var(--surface); color: var(--ink); box-shadow: 0 1px 3px rgba(16,24,40,.1); }
+.bellhead { position: relative; color: var(--ink-4); }
+.bellhead.on { color: var(--brand); }
+.bellcount { position: absolute; top: 2px; right: 1px; min-width: 14px; height: 14px; padding: 0 3px; border-radius: 7px; background: var(--brand); color: #fff; font-size: 9px; font-weight: 700; display: grid; place-items: center; line-height: 1; }
+.split .btn-sec:first-child:not(:only-child) { border-radius: var(--r) 0 0 var(--r); }
+.split .btn-sec.caret { border-radius: 0 var(--r) var(--r) 0; padding: 0 9px; margin-left: -1px; }
+
+/* past runs */
+.runs { flex: 1; min-height: 0; display: flex; flex-direction: column; background: var(--surface); }
+.runs-meta { display: flex; flex-wrap: wrap; gap: 8px 28px; padding: 16px 20px 14px; border-bottom: 1px solid var(--line-3); flex: none; }
+.runs-meta > div { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.runs-meta span { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--ink-4); font-weight: 600; }
+.runs-meta b { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.runs-meta b.muted { color: var(--ink-4); font-weight: 500; }
+.runs-meta b small { font-size: 12px; font-weight: 400; color: var(--ink-4); }
+.runs-meta .ticon { border-radius: 4px; }
+.failbanner { display: flex; align-items: center; gap: 12px; margin: 14px 20px 0; padding: 12px 14px; border: 1px solid #FECDCA; background: #FFFBFA; border-radius: 8px; color: var(--err); flex: none; }
+.failbanner > svg { flex: none; }
+.fb-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.fb-text b { color: var(--ink); font-size: 14px; }
+.fb-text span { font: 12px var(--mono); color: var(--ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.failbanner .btn { height: 34px; font-size: 13px; }
+.runs .tablewrap { padding-top: 0; }
+.runs .ptable thead tr:first-child th { padding-top: 6px; }
+.rtable { min-width: 900px; }
+.rtable .c-rid { width: 26%; }
+.ridcell { display: flex; align-items: center; gap: 10px; }
+.mono { font-family: var(--mono); font-size: 12.5px; }
+.rglyph { display: inline-flex; width: 20px; flex: none; }
+.rstat { display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 9px; border-radius: 999px; font-size: 12px; font-weight: 500; white-space: nowrap; }
+.rstat .dot { width: 6px; height: 6px; border-radius: 50%; }
+.rs-ok { background: var(--ok-bg); color: var(--ok); } .rs-ok .dot { background: var(--ok-dot); }
+.rs-fail { background: var(--err-bg); color: var(--err); } .rs-fail .dot { background: var(--err-dot); }
+.rs-ab { background: var(--line-3); color: var(--ink-3); } .rs-ab .dot { background: var(--ink-5); }
+.rs-run { background: #1D2939; color: #fff; padding-right: 4px; }
+.rstop { width: 18px; height: 18px; border-radius: 50%; background: #fff; display: grid; place-items: center; margin-left: 4px; }
+.rstop span { width: 7px; height: 7px; border-radius: 1.5px; background: var(--err-dot); }
+.rstop:hover { box-shadow: 0 0 0 2px rgba(240,68,56,.35); }
+.chev { display: inline-flex; color: var(--ink-5); transition: transform .15s; }
+.chev.up { transform: rotate(180deg); }
+.rtable tbody tr.open td { background: var(--surface-2); border-bottom-color: transparent; }
+.rtable tr.rdetail { cursor: default; }
+.rtable tr.rdetail td { height: auto; padding: 0 8px 16px; background: var(--surface-2); white-space: normal; }
+.rtable tr.rdetail:hover td { background: var(--surface-2); }
+.rd { display: flex; flex-direction: column; gap: 10px; padding: 4px 0 0 30px; max-width: 760px; }
+.rd-err { display: flex; align-items: flex-start; gap: 8px; padding: 9px 11px; border-radius: 6px; background: var(--err-bg); color: var(--err); }
+.rd-err > svg { flex: none; margin-top: 1px; }
+.rd-err .mono { color: #912018; white-space: normal; word-break: break-word; }
+.rd-tasks { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; border: 1px solid var(--line-2); border-radius: 6px; background: var(--surface); }
+.rd-tasks li { display: grid; grid-template-columns: 20px 1fr auto 64px; align-items: center; gap: 10px; padding: 8px 12px; }
+.rd-tasks li + li { border-top: 1px solid var(--line-3); }
+.rd-tasks .ticon { border-radius: 4px; }
+.rd-name { font-weight: 500; color: var(--ink); overflow: hidden; text-overflow: ellipsis; }
+.rd-st { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; }
+.rd-st .dot { width: 6px; height: 6px; border-radius: 50%; }
+.rd-success { color: var(--ok); } .rd-success .dot { background: var(--ok-dot); }
+.rd-failed { color: var(--err); } .rd-failed .dot { background: var(--err-dot); }
+.rd-aborted { color: var(--ink-4); } .rd-aborted .dot { background: var(--ink-5); }
+.rd-running { color: var(--brand); }
+.rd-dur { text-align: right; color: var(--ink-4); font-variant-numeric: tabular-nums; font-size: 12px; }
+.rd-actions { display: flex; gap: 16px; }
+td .muted { color: var(--ink-5); }
+.row-btns { display: flex; gap: 10px; }
+
+/* env tags: PROD purple, STG/DEV cyan */
+.envtag.env-stg, .envtag.env-dev { color: #0E7090; background: #ECFDFF; }
+/* recent-run tooltips */
+.ptable td .rrow .tipwrap > .tip { left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 1px; }
+.tip b { font-weight: 600; color: var(--ink); }
+.tip-sub { font-size: 11px; font-weight: 400; color: var(--ink-4); }
+.rr:focus-visible { outline: 2px solid var(--brand-200); outline-offset: 2px; }
+/* dialogs: standard-size icon inline with the title */
+.m-icon { width: 32px; height: 32px; box-shadow: none; flex: none; }
+.m-icon.danger { box-shadow: none; }
+.m-head { align-items: center; margin-bottom: 12px; }
+.cm-head { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+.cm-head .m-title { flex: 1; margin: 0; font-size: 17px; }
+.cm-x { margin-right: -6px; align-self: flex-start; }
+.modal .m-sub { margin: 0; }
+.modal .m-sub + .field, .modal form .m-sub { margin-bottom: 16px; }
+.modal .m-foot { margin-top: 20px; }
+.modal .pubsum { margin-top: 2px; }
+
+/* alerts drawer (Figma 4747:65084) */
+.main > .adrawer { top: 64px; z-index: 18; }
+.switch { width: 34px; height: 20px; border-radius: 999px; background: #98A2B3; position: relative; transition: background .15s; flex: none; }
+.switch span { position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(16,24,40,.2); transition: transform .15s; }
+.switch.on { background: var(--brand); }
+.switch.on span { transform: translateX(14px); }
+.setalert { width: 100%; height: 40px; }
+.alist { display: flex; flex-direction: column; gap: 12px; }
+.alist-t { font-size: 14px; font-weight: 600; color: var(--ink-2); margin-top: 4px; }
+.acard { width: 100%; display: flex; align-items: center; gap: 12px; text-align: left; padding: 14px 14px 14px 16px; border: 1px solid var(--line-2); border-radius: 8px; background: var(--surface); transition: border-color .12s, box-shadow .12s; }
+.acard:hover { border-color: #D6BBFB; box-shadow: 0 0 0 3px var(--brand-50); }
+.acard-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.acard-name { font-size: 15px; font-weight: 600; color: var(--ink); }
+.acard-dest { font-size: 13px; color: var(--ink-3); }
+.acard-dest span { color: var(--ink-4); }
+.atags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.atag { display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 999px; font-size: 12px; font-weight: 500; white-space: nowrap; }
+.at-fail { background: var(--err-bg); color: var(--err); }
+.at-ok { background: var(--ok-bg); color: var(--ok); }
+.at-dur { background: var(--line-3); color: var(--ink-3); }
+.aempty { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 6px; padding: 40px 16px; }
+.aempty .el-s { max-width: 300px; font-size: 13px; color: var(--ink-4); }
+.chips { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-height: 38px; padding: 4px 8px; border: 1px solid var(--line); border-radius: 4px; background: var(--surface); cursor: text; box-sizing: border-box; }
+.chips:focus-within { border-color: #B692F6; box-shadow: 0 0 0 3px var(--brand-100); }
+.chips.invalid { border-color: #FDA29B; }
+.chip { display: inline-flex; align-items: center; gap: 4px; height: 24px; padding: 0 4px 0 8px; border-radius: 4px; background: var(--line-3); font-size: 13px; color: var(--ink); max-width: 100%; }
+.chip button { width: 18px; height: 18px; display: grid; place-items: center; border-radius: 3px; color: var(--ink-3); }
+.chip button:hover { background: var(--line-2); color: var(--ink); }
+.chips input { flex: 1; min-width: 120px; border: 0; outline: 0; font: 14px var(--font); color: var(--ink); background: transparent; height: 28px; }
+.chips input::placeholder { color: var(--ink-5); }
+.chipselect { flex: 1; min-width: 140px; border: 0; outline: 0; background: transparent; font: 13px var(--font); color: var(--brand); height: 28px; cursor: pointer; }
+.mt-neg { margin-top: -10px; }
+.arows { display: flex; flex-direction: column; }
+.arow { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--line-2); }
+.arow-d { font-size: 12px; color: var(--ink-4); }
+.arow-sub { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 12px; margin: 8px 0 2px; background: var(--surface-2); border-radius: 6px; font-size: 13px; color: var(--ink-3); }
+.durin { display: inline-flex; align-items: center; gap: 4px; }
+.durin .inp { width: 64px; height: 32px; }
+.danger-link { display: inline-flex; align-items: center; gap: 6px; color: var(--err); align-self: flex-start; }
+
+/* alerts: overlay layer with slide-in / slide-out panel */
+.alayer { position: fixed; inset: 0; z-index: 90; }
+.ascrim { position: absolute; inset: 0; background: rgba(16,24,40,.42); animation: scrimIn .24s ease-out both; }
+.apanel { position: absolute; top: 0; right: 0; bottom: 0; width: min(480px, 92vw); background: var(--surface); box-shadow: -16px 0 40px -8px rgba(16,24,40,.24); display: flex; flex-direction: column; outline: none; animation: panelIn .3s cubic-bezier(.2,.8,.2,1) both; }
+.alayer.closing .ascrim { animation: scrimOut .24s ease-in both; }
+.alayer.closing .apanel { animation: panelOut .24s cubic-bezier(.4,0,1,1) both; }
+@keyframes panelIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
+@keyframes panelOut { from { transform: translateX(0); } to { transform: translateX(100%); } }
+@keyframes scrimIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes scrimOut { from { opacity: 1; } to { opacity: 0; } }
+.aview { flex: 1; min-height: 0; display: flex; flex-direction: column; animation: fade .18s ease-out; }
+.btn-danger-sec { background: var(--surface); border: 1px solid #FDA29B; color: var(--err); box-shadow: var(--shadow-xs); }
+.btn-danger-sec:hover { background: var(--err-bg); }
+.btn-pri:disabled:not(.publishing) { background: #D6BBFB; box-shadow: none; cursor: not-allowed; opacity: 1; }
+
+/* AI diagnosis */
+.btn-ai { color: #fff; background: linear-gradient(135deg, #7F56D9 0%, #9E77ED 55%, #6172F3 100%); box-shadow: 0 1px 2px rgba(16,24,40,.08), inset 0 1px 0 rgba(255,255,255,.18); }
+.btn-ai:hover { filter: brightness(1.06); }
+.btn-sm { height: 30px; padding: 0 10px; font-size: 12.5px; gap: 6px; }
+.btn:disabled { cursor: not-allowed; }
+.btn-sec:disabled { opacity: .5; }
+.main > .ddrawer { top: 64px; z-index: 18; width: min(460px, 92%); animation: panelIn .3s cubic-bezier(.2,.8,.2,1) both; }
+.aibadge { width: 24px; height: 24px; border-radius: 6px; display: grid; place-items: center; color: #fff; background: linear-gradient(135deg, #7F56D9, #6172F3); }
+.dx { gap: 16px; }
+.dx-ctx { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--line-2); border-radius: 8px; background: var(--surface-2); }
+.dx-ctx .ticon { border-radius: 5px; }
+.dx-ctx > div { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.dx-ctx b { font-size: 14px; color: var(--ink); }
+.dx-ctx > div > span { font-size: 12px; color: var(--ink-4); }
+.dx-ctx .mono { font-size: 11.5px; }
+.dx-think { display: flex; align-items: flex-start; gap: 18px; padding: 22px 16px; border-radius: 10px; background: linear-gradient(180deg, var(--brand-50), rgba(249,245,255,0)); }
+.matrix { flex: none; }
+.matrix circle { transition: opacity .07s linear; }
+.dx-steps { display: flex; flex-direction: column; gap: 10px; min-width: 0; padding-top: 2px; }
+.shimmer-wrap { display: block; min-height: 22px; }
+.shimmer { display: inline-block; font-size: 15px; font-weight: 600; letter-spacing: -0.01em;
+  background: linear-gradient(90deg, #667085 0%, #667085 35%, #7F56D9 46%, #C4B5FD 50%, #7F56D9 54%, #667085 65%, #667085 100%);
+  background-size: 300% 100%; -webkit-background-clip: text; background-clip: text; color: transparent;
+  animation: shimmerSweep 1.8s linear infinite, stepIn .3s ease-out; }
+@keyframes shimmerSweep { from { background-position: 100% 0; } to { background-position: 0% 0; } }
+@keyframes stepIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.dx-steps ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.dx-steps li { display: flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--ink-4); animation: stepIn .25s ease-out; }
+.dx-steps li svg { color: var(--ok-dot); flex: none; }
+.dx-result { display: flex; flex-direction: column; gap: 18px; }
+.dx-verdict { display: inline-flex; align-items: center; gap: 8px; align-self: flex-start; padding: 6px 12px; border-radius: 999px; font-size: 13px; animation: stepIn .3s ease-out both; }
+.dx-verdict b { font-weight: 600; }
+.dx-verdict span { opacity: .8; }
+.dx-verdict span::before { content: "·"; margin-right: 8px; }
+.v-fix { background: #FEF6EE; color: #B93815; }
+.v-ok { background: var(--ok-bg); color: var(--ok); }
+.dx-sec { display: flex; flex-direction: column; gap: 8px; animation: stepIn .35s ease-out both; }
+.dx-sec h3 { margin: 0; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-4); }
+.dx-reason { margin: 0; font-size: 15px; line-height: 1.55; color: var(--ink); text-wrap: pretty; }
+.dx-evidence { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; font-size: 13px; line-height: 1.5; color: var(--ink-2); }
+.dx-evidence li::marker { color: var(--brand); }
+.dx-log { margin: 2px 0 0; padding: 10px 12px; border-radius: 6px; background: #101828; font: 11.5px/1.65 var(--mono); color: #FDA29B; white-space: pre-wrap; word-break: break-word; }
+.dx-log span { display: block; }
+.dx-next { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.dx-next li { display: grid; grid-template-columns: 24px 1fr; gap: 10px; padding: 12px; border: 1px solid var(--line-2); border-radius: 8px; }
+.dx-num { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; background: var(--brand-50); color: var(--brand); font-size: 12px; font-weight: 700; }
+.dx-next b { font-size: 14px; color: var(--ink); }
+.dx-next p { margin: 3px 0 10px; font-size: 13px; line-height: 1.5; color: var(--ink-3); }
+.dx-foot { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding-top: 12px; border-top: 1px solid var(--line-2); font-size: 11.5px; color: var(--ink-4); line-height: 1.45; }
+.dx-fb { display: flex; gap: 12px; flex: none; }
+.dx-fb .linkbtn { font-size: 12px; }
+.dx-thanks { color: var(--ok); font-weight: 500; }
+.failchip-canvas { position: absolute; top: 16px; left: 16px; z-index: 6; display: flex; align-items: center; gap: 10px; padding: 6px 6px 6px 12px; background: var(--surface); border: 1px solid #FECDCA; border-radius: 8px; box-shadow: var(--shadow-md); font-size: 13px; color: var(--ink-2); }
+.failchip-canvas .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--err-dot); }
+.failchip-canvas b { color: var(--ink); }
+.rd-actions { align-items: center; }
+
+/* header bell chip: filled bell + readable count */
+.bellchip { display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 10px; border-radius: var(--r); color: var(--ink-4); font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.bellchip:hover { background: var(--line-3); color: var(--ink-2); }
+.bellchip.on { color: var(--brand); background: var(--brand-50); }
+.bellchip.on:hover { background: var(--brand-100); }
+/* diagnosing: compact loader beside the shimmer text */
+.dx-think { align-items: center; gap: 10px; padding: 18px 16px; }
+.dx-think .shimmer-wrap { min-height: 0; }
+
+</style>
+<div id="root"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reactflow@11.11.4/dist/umd/index.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/htm@3.1.1/dist/htm.umd.js"></script>
+<script>
+const { useState, useEffect, useRef, useMemo, useCallback, useContext, createContext } = React;
+const html = htm.bind(React.createElement);
+const RF = window.ReactFlow;
+const Flow = RF.default || RF.ReactFlow;
+const { ReactFlowProvider, Handle, Position, useReactFlow, useStore, MarkerType, applyNodeChanges, Background } = RF;
+
+/* ---------------- icons ---------------- */
+const ICONS = {
+  hand: '<path d="M18 11V6a2 2 0 0 0-2-2a2 2 0 0 0-2 2"/><path d="M14 10V4a2 2 0 0 0-2-2a2 2 0 0 0-2 2v2"/><path d="M10 10.5V6a2 2 0 0 0-2-2a2 2 0 0 0-2 2v8"/><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"/>',
+  timer: '<line x1="10" x2="14" y1="2" y2="2"/><line x1="12" x2="15" y1="14" y2="11"/><circle cx="12" cy="14" r="8"/>',
+  webhook: '<path d="M18 16.98h-5.99c-1.1 0-1.95.94-2.48 1.9A4 4 0 0 1 2 17c.01-.7.2-1.4.57-2"/><path d="m6 17 3.13-5.78c.53-.97.1-2.18-.5-3.1a4 4 0 1 1 6.89-4.06"/><path d="m12 6 3.13 5.73C15.66 12.7 16.9 13 18 13a4 4 0 0 1 0 8"/>',
+  pr: '<circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M13 6h3a2 2 0 0 1 2 2v7"/><line x1="6" x2="6" y1="9" y2="21"/>',
+  plug: '<path d="M12 22v-5"/><path d="M9 8V2"/><path d="M15 8V2"/><path d="M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8Z"/>',
+  layers: '<path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"/><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/>',
+  code: '<path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><path d="m10 13-2 2 2 2"/><path d="m14 17 2-2-2-2"/>',
+  job: '<rect width="8" height="8" x="3" y="3" rx="2"/><path d="M7 11v4a2 2 0 0 0 2 2h4"/><rect width="8" height="8" x="13" y="13" rx="2"/>',
+  plus: '<path d="M5 12h14"/><path d="M12 5v14"/>',
+  minus: '<path d="M5 12h14"/>',
+  x: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
+  chevL: '<path d="m15 18-6-6 6-6"/>',
+  chevR: '<path d="m9 18 6-6-6-6"/>',
+  chevD: '<path d="m6 9 6 6 6-6"/>',
+  pencil: '<path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/>',
+  zap: '<path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/>',
+  trash: '<path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>',
+  reset: '<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/>',
+  zoomIn: '<circle cx="11" cy="11" r="8"/><line x1="21" x2="16.65" y1="21" y2="16.65"/><line x1="11" x2="11" y1="8" y2="14"/><line x1="8" x2="14" y1="11" y2="11"/>',
+  zoomOut: '<circle cx="11" cy="11" r="8"/><line x1="21" x2="16.65" y1="21" y2="16.65"/><line x1="8" x2="14" y1="11" y2="11"/>',
+  bell: '<path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/>',
+  play: '<polygon points="6 3 20 12 6 21 6 3"/>',
+  nextrun: '<path d="M17 12H3"/><path d="m11 18 6-6-6-6"/><path d="M21 5v14"/>',
+  check: '<path d="M20 6 9 17l-5-5"/>',
+  checkCircle: '<circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/>',
+  alert: '<circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/>',
+  info: '<circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>',
+  server: '<rect width="20" height="8" x="2" y="2" rx="2"/><rect width="20" height="8" x="2" y="14" rx="2"/><line x1="6" x2="6.01" y1="6" y2="6"/><line x1="6" x2="6.01" y1="18" y2="18"/>',
+  cloud: '<path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/>',
+  clock: '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
+  stack: '<rect width="18" height="7" x="3" y="3" rx="1.5"/><rect width="18" height="7" x="3" y="14" rx="1.5"/>',
+  copy: '<rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>',
+  more: '<circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>',
+  send: '<path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"/><path d="m21.854 2.147-10.94 10.939"/>',
+  stop: '<rect width="14" height="14" x="5" y="5" rx="2"/>',
+  panel: '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M15 3v18"/>',
+  terminal: '<polyline points="4 17 10 11 4 5"/><line x1="12" x2="20" y1="19" y2="19"/>',
+  chart: '<path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/>',
+  grid: '<rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/>',
+  users: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+  shield: '<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/>',
+  gauge: '<path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/>',
+  settings: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
+  help: '<circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/>',
+  message: '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
+  arrowUp: '<path d="m5 12 7-7 7 7"/><path d="M12 19V5"/>',
+  arrowDown: '<path d="M12 5v14"/><path d="m19 12-7 7-7-7"/>',
+  arrowRight: '<path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>',
+  search: '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
+  pause: '<rect x="14" y="4" width="4" height="16" rx="1"/><rect x="6" y="4" width="4" height="16" rx="1"/>',
+  moreV: '<circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/>',
+  grip: '<circle cx="9" cy="6" r="1"/><circle cx="15" cy="6" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="9" cy="18" r="1"/><circle cx="15" cy="18" r="1"/>',
+  sparkles: '<path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/><path d="M20 3v4"/><path d="M22 5h-4"/>',
+  monitor: '<rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/>',
+};
+function Icon({ name, size = 16, color = 'currentColor', sw = 1.75, style, fill = 'none' }) {
+  return html`<svg width=${size} height=${size} viewBox="0 0 24 24" fill=${fill} stroke=${color} strokeWidth=${sw}
+    strokeLinecap="round" strokeLinejoin="round" style=${style} aria-hidden="true"
+    dangerouslySetInnerHTML=${{ __html: ICONS[name] || '' }}></svg>`;
+}
+
+/* ---------------- product vocabulary + fake data ---------------- */
+const TYPES = {
+  manual:    { kind: 'trigger', label: 'Manual',       color: '#6172F3', icon: 'hand',    desc: 'Runs the pipeline when manually initiated by a user', defaultName: 'Manual trigger' },
+  scheduled: { kind: 'trigger', label: 'Scheduled',    color: '#7A5AF8', icon: 'timer',   desc: 'Runs the pipeline automatically at set intervals', defaultName: 'Scheduled trigger' },
+  webhook:   { kind: 'trigger', label: 'Webhook',      color: '#06AED4', icon: 'webhook', desc: 'Runs the pipeline when an external system sends a request', defaultName: 'Webhook trigger' },
+  pr:        { kind: 'trigger', label: 'Pull Request', color: '#F79009', icon: 'pr',      desc: 'Runs the pipeline when a pull request is created', defaultName: 'Pull request trigger' },
+  ingestion: { kind: 'task', label: 'Ingestion',   color: '#EF6A4D', icon: 'plug',   desc: 'Ingest data from various sources', prefix: 'Ingestion' },
+  modeling:  { kind: 'task', label: 'Modeling',    color: '#C543C9', icon: 'layers', desc: 'Attach a GitHub repo to trigger a dbt run', prefix: 'Modeling' },
+  python:    { kind: 'task', label: 'Custom code', color: '#2E90FA', icon: 'code',   desc: 'Run a specific Python file', prefix: 'Python' },
+  job:       { kind: 'task', label: 'Job',         color: '#17B26A', icon: 'job',    desc: 'Run a parallel job', prefix: 'Job' },
+};
+const TRIGGERS = ['manual', 'scheduled', 'webhook', 'pr'];
+const TASKS = ['ingestion', 'modeling', 'python', 'job'];
+const ENVS = [
+  { id: 'prod', short: 'PROD', label: 'Production' },
+  { id: 'stg', short: 'STG', label: 'Staging' },
+  { id: 'dev', short: 'DEV', label: 'Development' },
+];
+const COMPUTE = [
+  { id: 'xs', label: 'X-Small', detail: '25 CUs, 1 vCPU + 4 GiB' }, { id: 's', label: 'Small', detail: '50 CUs, 2 vCPU + 8 GiB' },
+  { id: 'm', label: 'Medium', detail: '100 CUs, 4 vCPU + 16 GiB' }, { id: 'l', label: 'Large', detail: '200 CUs, 8 vCPU + 32 GiB' },
+];
+const TZS = [
+  { id: 'UTC', label: '(UTC+00:00) UTC', off: 0, abbr: 'UTC' },
+  { id: 'London', label: '(UTC+01:00) London', off: 60, abbr: 'BST' },
+  { id: 'Kolkata', label: '(UTC+05:30) Kolkata', off: 330, abbr: 'IST' },
+  { id: 'Singapore', label: '(UTC+08:00) Singapore', off: 480, abbr: 'SGT' },
+  { id: 'NewYork', label: '(UTC−04:00) New York', off: -240, abbr: 'EDT' },
+  { id: 'LA', label: '(UTC−07:00) Los Angeles', off: -420, abbr: 'PDT' },
+  { id: 'Hawaii', label: '(UTC−10:00) Hawaii', off: -600, abbr: 'HST' },
+];
+const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const CONNECTORS = ['shopify_store.orders', 'stripe_account.charges', 'hubspot_crm.contacts', 'postgres_app.users', 'google_ads.campaign_stats'];
+const REPOS = ['northwind/analytics-dbt', 'northwind/data-scripts', 'northwind/ml-features'];
+const JOBS = ['stripe-revenue-hourly', 'hubspot-contacts-sync', 'dbt-marketing-models', 'salesforce-to-warehouse-daily'];
+
+/* ---------------- schedule logic ---------------- */
+const pad = (n) => String(n).padStart(2, '0');
+function ruleFromSchedule(c) {
+  if (c.mode === 'custom') {
+    const [h, m] = (c.time || '05:00').split(':').map(Number);
+    if (c.every === 'hour') return { ok: true, freq: 'hour', h: 0, m: Number(c.minute) };
+    return { ok: true, freq: c.every, h, m, dow: Number(c.dow), dom: Number(c.dom) };
+  }
+  const f = (c.cron || '').trim().split(/\s+/);
+  if (f.length !== 5) return { ok: false, error: 'Enter 5 fields separated by spaces: minute hour day(month) month day(week).' };
+  const [mi, hr, dom, mon, dow] = f;
+  const num = (v, lo, hi) => /^\d+$/.test(v) && +v >= lo && +v <= hi;
+  const any = (v) => v === '*' || v === '?';
+  const valid = /^[\d*?,\/\-]+$/;
+  if (!f.every((x) => valid.test(x))) return { ok: false, error: 'Use digits, *, ?, commas, ranges or steps only.' };
+  if (!num(mi, 0, 59)) return { ok: true, freq: 'custom' };
+  if (any(hr) && any(dom) && any(mon) && any(dow)) return { ok: true, freq: 'hour', h: 0, m: +mi };
+  if (!num(hr, 0, 23) || !any(mon)) return { ok: true, freq: 'custom' };
+  if (num(dom, 1, 28) && any(dow)) return { ok: true, freq: 'month', h: +hr, m: +mi, dom: +dom };
+  if (any(dom) && num(dow, 0, 6)) return { ok: true, freq: 'week', h: +hr, m: +mi, dow: +dow };
+  if (any(dom) && any(dow)) return { ok: true, freq: 'day', h: +hr, m: +mi };
+  return { ok: true, freq: 'custom' };
+}
+function nextRunDate(rule, tz) {
+  if (!rule.ok || rule.freq === 'custom') return null;
+  const now = new Date(Date.now() + tz.off * 60000);
+  const base = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  if (rule.freq === 'hour') {
+    let t = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), now.getUTCHours(), rule.m);
+    if (t <= now.getTime()) t += 3600000;
+    return new Date(t);
+  }
+  for (let d = 0; d < 40; d++) {
+    const t = new Date(base + d * 86400000 + (rule.h * 60 + rule.m) * 60000);
+    if (t.getTime() <= now.getTime()) continue;
+    if (rule.freq === 'week' && t.getUTCDay() !== rule.dow) continue;
+    if (rule.freq === 'month' && t.getUTCDate() !== rule.dom) continue;
+    return t;
+  }
+  return null;
+}
+function formatZoned(t, tz) {
+  const now = new Date(Date.now() + tz.off * 60000);
+  const day0 = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  const diff = Math.floor((t.getTime() - day0) / 86400000);
+  const day = diff === 0 ? 'Today' : diff === 1 ? 'Tomorrow'
+    : `${DAYS[t.getUTCDay()].slice(0, 3)} ${t.getUTCDate()} ${MONTHS[t.getUTCMonth()]}`;
+  return `${day}, ${pad(t.getUTCHours())}:${pad(t.getUTCMinutes())} ${tz.abbr}`;
+}
+function scheduleSummary(c) {
+  const rule = ruleFromSchedule(c);
+  const tz = TZS.find((z) => z.id === c.tz) || TZS[0];
+  if (!rule.ok) return { ok: false, error: rule.error };
+  const at = `${pad(rule.h)}:${pad(rule.m)}`;
+  let parts;
+  if (rule.freq === 'hour') parts = [['Your trigger will run '], ['every hour', 1], [' at minute '], [`:${pad(rule.m)}`, 1]];
+  else if (rule.freq === 'day') parts = [['Your trigger will run '], ['every day', 1], [' at '], [at, 1]];
+  else if (rule.freq === 'week') parts = [['Your trigger will run '], [`every ${DAYS[rule.dow]}`, 1], [' at '], [at, 1]];
+  else if (rule.freq === 'month') parts = [['Your trigger will run on '], [`day ${rule.dom} of every month`, 1], [' at '], [at, 1]];
+  else parts = [['Your trigger will run on a '], ['custom CRON schedule', 1]];
+  parts.push([` ${tz.abbr}`, 1]);
+  const next = nextRunDate(rule, tz);
+  return { ok: true, parts, next: next ? formatZoned(next, tz) : null };
+}
+const DEFAULT_SCHEDULE = { mode: 'custom', every: 'day', time: '05:00', minute: '0', dow: '1', dom: '1', tz: 'UTC', cron: '0 5 * * *' };
+
+function nextRunLabel(trigger) {
+  if (!trigger) return { text: 'Add a trigger to schedule runs', muted: true };
+  const c = trigger.cfg || {};
+  if (trigger.type === 'manual') return { text: 'Only when run manually', muted: true };
+  if (trigger.type === 'webhook') return { text: 'On each webhook request', muted: true };
+  if (trigger.type === 'pr') return { text: `On new pull requests to ${c.branch || 'main'}`, muted: true };
+  const s = scheduleSummary(c.schedule || DEFAULT_SCHEDULE);
+  return s.next ? { text: s.next } : { text: 'Per CRON schedule', muted: true };
+}
+
+/* ---------------- small UI parts ---------------- */
+const Ctx = createContext(null);
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const fmtDur = (s) => (s >= 60 ? `${Math.floor(s / 60)}m ${pad(s % 60)}s` : `${s}s`);
+const DUR = { ingestion: [70, 140], modeling: [110, 200], python: [25, 60], job: [150, 240] };
+const randDur = (type) => { const [a, b] = DUR[type]; return a + Math.floor(Math.random() * (b - a)); };
+
+function TypeIcon({ type, size = 28 }) {
+  const t = TYPES[type];
+  return html`<span className="ticon" style=${{ background: t.color, width: size, height: size }}>
+    <${Icon} name=${t.icon} size=${Math.round(size * 0.58)} color="#fff" sw=${1.9} />
+  </span>`;
+}
+function StatusBadge({ status, duration }) {
+  if (status === 'running') return html`<span className="st st-run"><span className="spin sm"></span>Running</span>`;
+  if (status === 'success') return html`<span className="st st-ok"><span className="dot"></span>${duration || 'Success'}</span>`;
+  if (status === 'failed') return html`<span className="st st-fail"><span className="dot"></span>Failed</span>`;
+  if (status === 'aborted') return html`<span className="st st-ab"><span className="dot"></span>Aborted</span>`;
+  return html`<span className="st st-none"><${Icon} name="info" size=${12} />No status</span>`;
+}
+function Tip({ label, children }) {
+  return html`<span className="tipwrap">${children}<span className="tip" role="tooltip">${label}</span></span>`;
+}
+function AddAfter({ id, show, pulse }) {
+  const a = useContext(Ctx);
+  return html`<div className=${'addafter nodrag' + (show ? ' show' : '') + (pulse ? ' pulse' : '')}>
+    <span className="addline"></span>
+    <button className="addbtn" aria-label="Add a task after this step"
+      onClick=${(e) => { e.stopPropagation(); a.addAfter(id); }}><${Icon} name="plus" size=${14} sw=${2} /></button>
+    ${pulse && html`<span className="addhint">Add a task</span>`}
+  </div>`;
+}
+function Toolbar({ id, color, canTest, canDelete, canDiagnose }) {
+  const a = useContext(Ctx);
+  const btn = (icon, label, fn, danger) => html`<${Tip} label=${label}>
+    <button className=${'tb' + (danger ? ' tb-del' : '')} style=${{ color }} aria-label=${label}
+      onClick=${(e) => { e.stopPropagation(); fn(id); }}><${Icon} name=${icon} size=${13} /></button></${Tip}>`;
+  return html`<div className="toolbar nodrag">
+    ${canDiagnose && btn('sparkles', 'Diagnose with AI', a.diagnose)}${canDiagnose && html`<span className="tbline"></span>`}
+    ${btn('pencil', 'Edit', a.edit)}
+    ${canTest && html`<span className="tbline"></span>`}${canTest && btn('zap', 'Test step', a.test)}
+    ${canDelete && html`<span className="tbline"></span>`}${canDelete && btn('trash', 'Delete', a.del, true)}
+  </div>`;
+}
+
+/* ---------------- canvas nodes ---------------- */
+function TriggerNode({ id, data }) {
+  const t = TYPES[data.type];
+  return html`<div className=${'node trig' + (data.editing ? ' editing' : '')} style=${{ '--c': t.color }}>
+    <div className="trig-main"><${TypeIcon} type=${data.type} /><span className="trig-name">${data.name}</span></div>
+    <${Handle} type="source" position=${Position.Right} isConnectable=${false} className="hdl" style=${{ top: 26 }} />
+    <${Toolbar} id=${id} color=${t.color} canDelete=${data.canDelete} />
+    <${AddAfter} id=${id} show=${data.isLeaf} pulse=${data.pulse} />
+  </div>`;
+}
+function TaskNode({ id, data }) {
+  const t = TYPES[data.type];
+  const a = useContext(Ctx);
+  return html`<div className=${'node task' + (data.editing ? ' editing' : '') + (data.status === 'running' ? ' running' : '')} style=${{ '--c': t.color }}>
+    <${Handle} type="target" position=${Position.Left} isConnectable=${false} className="hdl" style=${{ top: 32 }} />
+    <div className="task-main"><${TypeIcon} type=${data.type} />
+      <div className="task-text"><span className="task-type">${t.label}</span><span className="task-name">${data.name}</span></div>
+    </div>
+    ${data.ran && html`<div className="task-foot">
+      ${data.published ? html`<button className="viewlogs nodrag" onClick=${(e) => { e.stopPropagation(); a.logs(id); }}>View Logs</button>` : html`<span></span>`}
+      <${StatusBadge} status=${data.status} duration=${data.duration} />
+    </div>`}
+    <${Handle} type="source" position=${Position.Right} isConnectable=${false} className="hdl" style=${{ top: 32 }} />
+    <${Toolbar} id=${id} color=${t.color} canTest=${true} canDelete=${true} canDiagnose=${data.status === 'failed'} />
+    <${AddAfter} id=${id} show=${data.isLeaf} />
+  </div>`;
+}
+function PlaceholderNode() {
+  return html`<div className="ph">
+    <span className="ph-plus"><${Icon} name="plus" size=${18} sw=${2} /></span>
+    <div><div className="ph-t">Add a trigger</div><div className="ph-s">Choose how this pipeline starts</div></div>
+  </div>`;
+}
+const nodeTypes = { trigger: TriggerNode, task: TaskNode, placeholder: PlaceholderNode };
+
+/* ---------------- zoom controls (Figma: reset · − slider +) ---------------- */
+function ZoomBar() {
+  const rf = useReactFlow();
+  const zoom = useStore((s) => s.transform[2]);
+  const MIN = 0.3, MAX = 1.5;
+  return html`<div className="zoombar">
+    <${Tip} label="Fit to screen"><button className="zb" aria-label="Fit to screen" onClick=${() => rf.fitView({ padding: 0.35, maxZoom: 1, duration: 300 })}><${Icon} name="reset" size=${13} /></button></${Tip}>
+    <div className="zgroup">
+      <button className="zb" aria-label="Zoom out" onClick=${() => rf.zoomOut({ duration: 200 })}><${Icon} name="zoomOut" size=${13} /></button>
+      <input type="range" id="zoom-slider" aria-label="Zoom" min=${MIN} max=${MAX} step="0.05" value=${zoom}
+        style=${{ '--p': `${((zoom - MIN) / (MAX - MIN)) * 100}%` }}
+        onChange=${(e) => rf.zoomTo(Number(e.target.value))} />
+      <button className="zb" aria-label="Zoom in" onClick=${() => rf.zoomIn({ duration: 200 })}><${Icon} name="zoomIn" size=${13} /></button>
+      <span className="zpct">${Math.round(zoom * 100)}%</span>
+    </div>
+  </div>`;
+}
+
+/* ---------------- form controls ---------------- */
+function Field({ label, required, hint, error, children, htmlFor, info }) {
+  return html`<div className="field">
+    <label className="flabel" htmlFor=${htmlFor}>${label}${required && html`<span className="req">*</span>`}
+      ${info && html`<${Tip} label=${info}><${Icon} name="info" size=${13} color="#98A2B3" /></${Tip}>`}</label>
+    ${children}
+    ${error ? html`<div className="ferr"><${Icon} name="alert" size=${12} />${error}</div>` : hint && html`<div className="fhint">${hint}</div>`}
+  </div>`;
+}
+function Select({ id, value, onChange, options, placeholder, invalid }) {
+  return html`<div className=${'selwrap' + (invalid ? ' invalid' : '')}>
+    <select id=${id} value=${value} onChange=${(e) => onChange(e.target.value)} className=${value === '' ? 'empty' : ''}>
+      ${placeholder && html`<option value="" disabled>${placeholder}</option>`}
+      ${options.map((o) => { const v = typeof o === 'string' ? o : o.value; const l = typeof o === 'string' ? o : o.label;
+        return html`<option key=${v} value=${v}>${l}</option>`; })}
+    </select><${Icon} name="chevD" size=${16} color="#667085" />
+  </div>`;
+}
+function Input({ id, value, onChange, placeholder, invalid, mono, ...rest }) {
+  return html`<input id=${id} className=${'inp' + (invalid ? ' invalid' : '') + (mono ? ' mono' : '')} value=${value}
+    placeholder=${placeholder} onChange=${(e) => onChange(e.target.value)} ...${rest} />`;
+}
+function Segmented({ value, onChange, options, id }) {
+  return html`<div className="seg" role="tablist" id=${id}>${options.map((o) => html`<button key=${o.value} role="tab"
+    aria-selected=${value === o.value} className=${value === o.value ? 'on' : ''} onClick=${() => onChange(o.value)}>${o.label}</button>`)}</div>`;
+}
+function Callout({ children, tone = 'brand', icon = 'zap' }) {
+  return html`<div className=${'callout c-' + tone}><${Icon} name=${icon} size=${15} /><div>${children}</div></div>`;
+}
+
+/* ---------------- drawer ---------------- */
+function uniqueName(prefix, nodes) {
+  let i = 1; while (nodes.some((n) => n.name === `${prefix}_${i}`)) i++; return `${prefix}_${i}`;
+}
+function descendantsOf(id, nodes) {
+  const out = new Set(); const walk = (p) => nodes.filter((n) => n.parent === p).forEach((c) => { out.add(c.id); walk(c.id); });
+  walk(id); return out;
+}
+
+function NodeList({ list, onPick, onClose }) {
+  const section = (title, types) => html`<div className="dsec"><div className="dsec-t">${title}</div>
+    ${types.map((k) => html`<button key=${k} className="pick" onClick=${() => onPick(k)}>
+      <${TypeIcon} type=${k} size=${26} />
+      <span className="pick-text"><span className="pick-t">${TYPES[k].label}</span><span className="pick-d">${TYPES[k].desc}</span></span>
+      <${Icon} name="chevR" size=${16} color="#667085" /></button>`)}</div>`;
+  return html`<div className="dhead"><div className="dtitle"><${Icon} name="job" size=${16} color="#344054" /><span>Add a node</span></div>
+      <button className="iconbtn" aria-label="Close" onClick=${onClose}><${Icon} name="x" size=${18} /></button></div>
+    <div className="dbody list">
+      ${list !== 'tasks' && section(list === 'triggers' ? 'Trigger' : 'Triggers', TRIGGERS)}
+      ${list === 'all' && html`<hr className="dsep" />`}
+      ${list !== 'triggers' && section('Tasks', TASKS)}
+      ${list === 'triggers' && html`<p className="dnote">Every pipeline starts with one trigger. You'll add tasks after it.</p>`}
+    </div>`;
+}
+
+function CommandList({ value, onChange }) {
+  const list = value.length ? value : [];
+  const [focusIdx, setFocusIdx] = useState(null);
+  const [dragIdx, setDragIdx] = useState(null);
+  const [overIdx, setOverIdx] = useState(null);
+  const refs = useRef([]);
+  useEffect(() => { if (focusIdx != null && refs.current[focusIdx]) { refs.current[focusIdx].focus(); setFocusIdx(null); } }, [focusIdx, list.length]);
+  const update = (i, v) => onChange(list.map((c, k) => (k === i ? v : c)));
+  const remove = (i) => { onChange(list.filter((_, k) => k !== i)); setFocusIdx(Math.max(0, Math.min(i, list.length - 2))); };
+  const add = (at = list.length) => { const n = [...list]; n.splice(at, 0, ''); onChange(n); setFocusIdx(at); };
+  const move = (from, to) => { if (to < 0 || to >= list.length || from === to) return; const n = [...list]; const [x] = n.splice(from, 1); n.splice(to, 0, x); onChange(n); };
+  return html`<div className="cmdbox">
+    ${list.length > 0 && html`<div className="cmdlist">${list.map((c, i) => html`<div key=${i}
+        className=${'cmdrow' + (dragIdx === i ? ' dragging' : '') + (overIdx === i && dragIdx !== i ? ' over' : '')}
+        onDragOver=${(e) => { if (dragIdx == null) return; e.preventDefault(); setOverIdx(i); }}
+        onDrop=${(e) => { e.preventDefault(); if (dragIdx != null) move(dragIdx, i); setDragIdx(null); setOverIdx(null); }}>
+      <input id=${'f-cmd-' + i} ref=${(el) => { refs.current[i] = el; }} className="inp mono" value=${c} placeholder="e.g. dbt build --select marts"
+        aria-label=${`dbt command ${i + 1}`} autoComplete="off" spellCheck=${false}
+        onChange=${(e) => update(i, e.target.value)}
+        onKeyDown=${(e) => { if (e.key === 'Enter') { e.preventDefault(); add(i + 1); }
+          if (e.key === 'Backspace' && !c && list.length > 1) { e.preventDefault(); remove(i); } }} />
+      <button type="button" className="cmdbtn" aria-label=${`Remove command ${i + 1}`} onClick=${() => remove(i)}><${Icon} name="x" size=${15} /></button>
+      <button type="button" className="cmdbtn grip" draggable="true" aria-label=${`Reorder command ${i + 1}. Use the arrow keys to move it.`}
+        onDragStart=${(e) => { setDragIdx(i); e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', String(i)); } catch (_) {} }}
+        onDragEnd=${() => { setDragIdx(null); setOverIdx(null); }}
+        onKeyDown=${(e) => { if (e.key === 'ArrowUp') { e.preventDefault(); move(i, i - 1); setTimeout(() => document.querySelectorAll('.cmdrow .grip')[i - 1]?.focus(), 0); }
+          if (e.key === 'ArrowDown') { e.preventDefault(); move(i, i + 1); setTimeout(() => document.querySelectorAll('.cmdrow .grip')[i + 1]?.focus(), 0); } }}>
+        <${Icon} name="grip" size=${15} /></button>
+    </div>`)}</div>`}
+    <button type="button" className="btn btn-sec addcmd" onClick=${() => add()}><${Icon} name="plus" size=${15} />Add command</button>
+  </div>`;
+}
+
+function ConfigForm({ drawer, nodes, onBack, onClose, onSave, onTest }) {
+  const { type, editId } = drawer;
+  const t = TYPES[type];
+  const editing = editId ? nodes.find((n) => n.id === editId) : null;
+  const isTrigger = t.kind === 'trigger';
+  const showLogs = !isTrigger && !!(editing && editing.published);
+  const [tab, setTab] = useState(showLogs && drawer.tab === 'logs' ? 'logs' : 'params');
+  const [errors, setErrors] = useState({});
+  const [f, setF] = useState(() => {
+    if (editing) return { name: editing.name, parent: editing.parent || '', ...JSON.parse(JSON.stringify(editing.cfg || {})) };
+    if (isTrigger) return { name: t.defaultName, schedule: { ...DEFAULT_SCHEDULE }, repo: '', branch: 'main', secret: Math.random().toString(36).slice(2, 10) };
+    return { name: uniqueName(t.prefix, nodes), parent: drawer.parentId || '', connector: '', repo: '', commands: [''], file: 'scripts/refresh_fx_rates.py', job: '', description: '' };
+  });
+  const set = (k, v) => { setF((p) => ({ ...p, [k]: v })); setErrors((e) => ({ ...e, [k]: undefined })); };
+  const setS = (k, v) => { setF((p) => ({ ...p, schedule: { ...p.schedule, [k]: v } })); setErrors((e) => ({ ...e, cron: undefined })); };
+
+  const excluded = editing ? descendantsOf(editing.id, nodes) : new Set();
+  const parentOpts = nodes.filter((n) => n.id !== editId && !excluded.has(n.id)).map((n) => ({ value: n.id, label: n.name }));
+  const sched = isTrigger && type === 'scheduled' ? scheduleSummary(f.schedule) : null;
+  const hookUrl = `https://hooks.northwind.dev/p/${(f.name || 'trigger').toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${f.secret || 'x'}`;
+
+  function save() {
+    const e = {};
+    const name = (f.name || '').trim();
+    if (!name) e.name = isTrigger ? 'Enter a trigger name.' : 'Enter a task name.';
+    else if (nodes.some((n) => n.id !== editId && n.name === name)) e.name = `Another step is already called “${name}”.`;
+    if (!isTrigger && !f.parent) e.parent = 'Choose the step this task runs after.';
+    if (type === 'ingestion' && !f.connector) e.connector = 'Choose a connector to ingest from.';
+    if ((type === 'modeling' || type === 'python' || type === 'pr') && !f.repo) e.repo = 'Choose a repository.';
+    if (type === 'python' && !(f.file || '').trim().endsWith('.py')) e.file = 'Enter the path to a .py file, e.g. scripts/main.py';
+    if (type === 'job' && !f.job) e.job = 'Choose the pipeline to run.';
+    if (type === 'scheduled' && sched && !sched.ok) e.cron = sched.error;
+    setErrors(e);
+    if (Object.keys(e).length) return;
+    const { name: _n, parent, ...cfg } = f;
+    if (cfg.commands) cfg.commands = cfg.commands.map((c) => c.trim()).filter(Boolean);
+    onSave({ type, name, parent: isTrigger ? null : parent, cfg, editId });
+  }
+
+  const logs = editing?.logs || [];
+  return html`<div className="dhead">
+      <div className="dtitle">
+        <button className="iconbtn sm" aria-label=${editing ? 'Close' : 'Back to node types'} onClick=${editing ? onClose : onBack}><${Icon} name="chevL" size=${16} /></button>
+        <${TypeIcon} type=${type} size=${24} /><span>${editing ? editing.name : t.label}</span>
+        ${editing && html`<span className="dtag">${t.label}</span>`}
+      </div>
+      <button className="iconbtn" aria-label="Close" onClick=${onClose}><${Icon} name="x" size=${18} /></button>
+    </div>
+    ${showLogs && html`<div className="tabs">
+      <button className=${tab === 'params' ? 'on' : ''} onClick=${() => setTab('params')}>Parameters</button>
+      <button className=${tab === 'logs' ? 'on' : ''} onClick=${() => setTab('logs')}>Logs</button></div>`}
+
+    ${tab === 'logs' ? html`<div className="dbody">
+        ${logs.length ? html`<pre className="logs">${logs.join('\n')}</pre>`
+          : html`<div className="empty-logs"><${Icon} name="terminal" size=${22} color="#98A2B3" />
+            <div className="el-t">No logs yet</div>
+            <div className="el-s">${editing ? 'Test this step or run the pipeline to see its output here.' : 'Logs appear here once this task has run.'}</div>
+            ${editing && html`<button className="btn btn-sec" onClick=${() => onTest(editing.id)}><${Icon} name="zap" size=${14} />Test step</button>`}</div>`}
+      </div>` : html`<div className="dbody">
+      <${Field} label=${isTrigger ? 'Trigger Name' : 'Task Name'} required=${!isTrigger} htmlFor="f-name" error=${errors.name}
+        info=${isTrigger ? null : 'Shown on the canvas and in job run history'}>
+        <${Input} id="f-name" value=${f.name} onChange=${(v) => set('name', v)} invalid=${errors.name} autoFocus=${!editing} />
+      </${Field}>
+
+      ${type === 'manual' && html`<${Callout} icon="hand">This pipeline runs only when someone clicks <b>Run now</b> or calls the API.</${Callout}>`}
+
+      ${type === 'scheduled' && html`<div className="fgroup">
+        <div className="fgroup-t">Schedule</div>
+        <${Segmented} id="f-mode" value=${f.schedule.mode} onChange=${(v) => setS('mode', v)}
+          options=${[{ value: 'custom', label: 'Custom Time' }, { value: 'cron', label: 'CRON Expression' }]} />
+        ${f.schedule.mode === 'custom' ? html`
+          <div className="row2">
+            <${Field} label="Every" htmlFor="f-every"><${Select} id="f-every" value=${f.schedule.every} onChange=${(v) => setS('every', v)}
+              options=${[{ value: 'hour', label: 'Hour' }, { value: 'day', label: 'Day' }, { value: 'week', label: 'Week' }, { value: 'month', label: 'Month' }]} /></${Field}>
+            ${f.schedule.every === 'hour'
+              ? html`<${Field} label="at minute" htmlFor="f-min"><${Select} id="f-min" value=${f.schedule.minute} onChange=${(v) => setS('minute', v)}
+                  options=${['0', '15', '30', '45'].map((m) => ({ value: m, label: ':' + pad(m) }))} /></${Field}>`
+              : html`<${Field} label="at" htmlFor="f-time"><div className="timewrap"><input id="f-time" type="time" className="inp" value=${f.schedule.time}
+                  onChange=${(e) => setS('time', e.target.value || '00:00')} /></div></${Field}>`}
+          </div>
+          ${f.schedule.every === 'week' && html`<${Field} label="on" htmlFor="f-dow"><${Select} id="f-dow" value=${f.schedule.dow}
+            onChange=${(v) => setS('dow', v)} options=${DAYS.map((d, i) => ({ value: String(i), label: d }))} /></${Field}>`}
+          ${f.schedule.every === 'month' && html`<${Field} label="on day" htmlFor="f-dom"><${Select} id="f-dom" value=${f.schedule.dom}
+            onChange=${(v) => setS('dom', v)} options=${Array.from({ length: 28 }, (_, i) => String(i + 1))} /></${Field}>`}
+          <${Field} label="in" htmlFor="f-tz"><${Select} id="f-tz" value=${f.schedule.tz} onChange=${(v) => setS('tz', v)}
+            options=${TZS.map((z) => ({ value: z.id, label: z.label }))} /></${Field}>
+        ` : html`
+          <${Field} label="CRON Expression" htmlFor="f-cron" error=${errors.cron} hint="[minute] [hour] [day(month)] [month] [day(week)]">
+            <${Input} id="f-cron" mono=${true} value=${f.schedule.cron} onChange=${(v) => setS('cron', v)} invalid=${errors.cron} />
+          </${Field}>
+          <${Field} label="in" htmlFor="f-tz2"><${Select} id="f-tz2" value=${f.schedule.tz} onChange=${(v) => setS('tz', v)}
+            options=${TZS.map((z) => ({ value: z.id, label: z.label }))} /></${Field}>`}
+        ${sched && sched.ok && html`<${Callout}>${sched.parts.map(([txt, b], i) => b ? html`<b key=${i}>${txt}</b>` : txt)}
+          ${sched.next && html`<span className="callout-sub">Next run: ${sched.next}</span>`}</${Callout}>`}
+      </div>`}
+
+      ${type === 'webhook' && html`<${Field} label="Endpoint URL" htmlFor="f-hook" hint="Send a POST request to this URL to start a run.">
+        <div className="copyrow"><input id="f-hook" className="inp mono" readOnly value=${hookUrl} onFocus=${(e) => e.target.select()} />
+        <button className="btn btn-sec" onClick=${() => { const done = () => drawer.toast('Endpoint URL copied'); try { navigator.clipboard.writeText(hookUrl).then(done, () => { document.getElementById('f-hook').select(); drawer.toast('Press ⌘C to copy the selected URL', 'info'); }); } catch (_) { document.getElementById('f-hook').select(); } }}>
+          <${Icon} name="copy" size=${14} />Copy</button></div></${Field}>`}
+
+      ${type === 'pr' && html`
+        <${Field} label="Repository" required htmlFor="f-repo" error=${errors.repo}><${Select} id="f-repo" value=${f.repo} onChange=${(v) => set('repo', v)}
+          options=${REPOS} placeholder="Select a repository" invalid=${errors.repo} /></${Field}>
+        <${Field} label="Target branch" htmlFor="f-branch" hint="Runs when a pull request into this branch is opened or updated.">
+          <${Input} id="f-branch" mono=${true} value=${f.branch} onChange=${(v) => set('branch', v)} /></${Field}>`}
+
+      ${type === 'ingestion' && html`<${Field} label="Connector" required htmlFor="f-conn" error=${errors.connector}>
+        <${Select} id="f-conn" value=${f.connector} onChange=${(v) => set('connector', v)} options=${CONNECTORS} placeholder="Select a connector" invalid=${errors.connector} /></${Field}>`}
+
+      ${(type === 'modeling' || type === 'python') && html`<${Field} label=${type === 'modeling' ? 'dbt repository' : 'Repository'} required htmlFor="f-repo" error=${errors.repo}>
+        <${Select} id="f-repo" value=${f.repo} onChange=${(v) => set('repo', v)} options=${REPOS} placeholder="Select a GitHub repository" invalid=${errors.repo} /></${Field}>`}
+      ${type === 'modeling' && html`<${Field} label="dbt commands to run" htmlFor="f-cmd-0" hint="Optional. Commands run in order, top to bottom. Drag to reorder.">
+        <${CommandList} value=${f.commands || []} onChange=${(v) => set('commands', v)} /></${Field}>`}
+      ${type === 'python' && html`<${Field} label="File path" required htmlFor="f-file" error=${errors.file}>
+        <${Input} id="f-file" mono=${true} value=${f.file} onChange=${(v) => set('file', v)} invalid=${errors.file} /></${Field}>`}
+      ${type === 'job' && html`<${Field} label="Pipeline" required htmlFor="f-job" error=${errors.job} hint="Runs another pipeline as a step of this one.">
+        <${Select} id="f-job" value=${f.job} onChange=${(v) => set('job', v)} options=${JOBS} placeholder="Select a pipeline" invalid=${errors.job} /></${Field}>`}
+
+      ${!isTrigger && html`
+        <${Field} label="Depends on" htmlFor="f-dep" error=${errors.parent} hint="This task starts when the selected step succeeds.">
+          <${Select} id="f-dep" value=${f.parent} onChange=${(v) => set('parent', v)} options=${parentOpts} placeholder="Select a step" invalid=${errors.parent} /></${Field}>
+        <${Field} label="Add a Description" htmlFor="f-desc">
+          <${Input} id="f-desc" value=${f.description} onChange=${(v) => set('description', v)} placeholder="Add a description" /></${Field}>`}
+    </div>`}
+    <div className="dfoot">
+      <button className="btn btn-sec" onClick=${editing ? onClose : onBack}>Cancel</button>
+      <button className="btn btn-pri grow" onClick=${save}>${editing ? 'Save changes' : isTrigger ? 'Save Trigger' : 'Save Task'}</button>
+    </div>`;
+}
+
+/* ---------------- settings panel ---------------- */
+function OptionalSection({ id, title, desc, on, onAdd, onRemove, children }) {
+  return html`<section className="sp-sec" aria-labelledby=${id + '-t'}>
+    <div className="sp-sechead">
+      <span id=${id + '-t'} className="sp-sectitle">${title}</span>
+      <${Tip} label=${on ? 'Remove' : 'Add'}><button className="iconbtn sm" id=${id + '-toggle'} aria-expanded=${on}
+        aria-label=${(on ? 'Remove ' : 'Add ') + title.toLowerCase()} onClick=${on ? onRemove : onAdd}>
+        <${Icon} name=${on ? 'minus' : 'plus'} size=${16} sw=${2} /></button></${Tip}>
+    </div>
+    ${desc && html`<p className="sp-desc">${desc}</p>`}
+    ${on && html`<div className="sp-secbody">${children}</div>`}
+  </section>`;
+}
+
+function SettingsPanel({ pipe, setPipe, trigger, paused, onCollapse, toast }) {
+  const nr = paused ? { text: 'Paused. Resume the pipeline to schedule runs.', muted: true } : nextRunLabel(trigger);
+  const env = ENVS.find((e) => e.id === pipe.env);
+  const [name, setName] = useState(pipe.name);
+  const [nameErr, setNameErr] = useState('');
+  useEffect(() => { setName(pipe.name); setNameErr(''); }, [pipe.name]);
+  const commitName = () => {
+    const v = name.trim();
+    if (!v) { setNameErr('Enter a pipeline name.'); return; }
+    if (v !== pipe.name) { setPipe({ name: v }); toast('Pipeline renamed'); }
+  };
+  const tMax = pipe.timeoutUnit === 'hours' ? 72 : 1440;
+  const tHint = pipe.timeoutUnit
+    ? `Runs still going after ${pipe.timeout} ${pipe.timeoutUnit === 'hours' ? (pipe.timeout === 1 ? 'hour' : 'hours') : (pipe.timeout === 1 ? 'minute' : 'minutes')} are stopped and marked failed.`
+    : 'Choose a unit to set the time out.';
+
+  return html`<aside className="settings" aria-label="Pipeline settings">
+    <div className="sp-scroll">
+      <section className="sp-sec sp-first">
+        <div className="sp-sechead">
+          <span className="sp-lbl">Next run</span>
+          <${Tip} label="Hide settings"><button className="iconbtn sm" aria-label="Hide settings panel" onClick=${onCollapse}><${Icon} name="panel" size=${15} /></button></${Tip}>
+        </div>
+        <div className=${'sp-nextval' + (nr.muted ? ' muted' : '')}>${nr.text}</div>
+        ${trigger && html`<div className="sp-trig"><${TypeIcon} type=${trigger.type} size=${16} />${trigger.name}</div>`}
+      </section>
+
+      <section className="sp-sec sp-fields">
+        <${Field} label="Pipeline name" htmlFor="s-name" error=${nameErr}>
+          <${Input} id="s-name" value=${name} invalid=${nameErr} onChange=${(v) => { setName(v); setNameErr(''); }}
+            onBlur=${commitName} onKeyDown=${(e) => { if (e.key === 'Enter') e.target.blur(); if (e.key === 'Escape') { setName(pipe.name); setNameErr(''); } }} />
+        </${Field}>
+        <${Field} label="Compute" htmlFor="s-compute">
+          <${Select} id="s-compute" value=${pipe.compute} onChange=${(v) => setPipe({ compute: v })}
+            options=${COMPUTE.map((c) => ({ value: c.id, label: `${c.label} (${c.detail})` }))} /></${Field}>
+        <${Field} label="Environment" htmlFor="s-env">
+          <div className="envsel"><${Select} id="s-env" value=${pipe.env} onChange=${(v) => setPipe({ env: v })}
+            options=${ENVS.map((e) => ({ value: e.id, label: e.label }))} /><span className=${'envtag env-' + env.id}>${env.short}</span></div></${Field}>
+      </section>
+
+      <${OptionalSection} id="s-timeout" title="Time out" on=${pipe.timeoutOn}
+        desc=${pipe.timeoutOn ? null : 'Stop runs that take longer than a set time.'}
+        onAdd=${() => setPipe({ timeoutOn: true })} onRemove=${() => setPipe({ timeoutOn: false })}>
+        <${Field} label="Time out in" htmlFor="s-timeout-val" hint=${tHint}>
+          <div className="row2">
+            <input id="s-timeout-val" type="number" min="1" max=${tMax} className="inp" value=${pipe.timeout}
+              onChange=${(e) => setPipe({ timeout: Math.max(1, Math.min(tMax, Math.round(Number(e.target.value)) || 1)) })} />
+            <${Select} id="s-timeout-unit" value=${pipe.timeoutUnit} placeholder="Select"
+              onChange=${(v) => setPipe({ timeoutUnit: v, timeout: Math.min(pipe.timeout, v === 'hours' ? 72 : 1440) })}
+              options=${[{ value: 'minutes', label: 'Minutes' }, { value: 'hours', label: 'Hours' }]} />
+          </div>
+        </${Field}>
+      </${OptionalSection}>
+
+      <${OptionalSection} id="s-conc" title="Concurrent job runs" on=${pipe.concurrencyOn}
+        desc="Allow multiple instances of the job to run at the same time."
+        onAdd=${() => setPipe({ concurrencyOn: true })} onRemove=${() => setPipe({ concurrencyOn: false })}>
+        <${Field} label="Maximum runs at once" htmlFor="s-conc-val" hint=${`Up to ${pipe.concurrency} runs of this pipeline can overlap.`}>
+          <input id="s-conc-val" type="number" min="2" max="10" className="inp sp-num" value=${pipe.concurrency}
+            onChange=${(e) => setPipe({ concurrency: Math.max(2, Math.min(10, Math.round(Number(e.target.value)) || 2)) })} />
+        </${Field}>
+      </${OptionalSection}>
+    </div>
+    <p className="sp-foot">All your changes are automatically saved and go live once your pipeline is published.</p>
+  </aside>`;
+}
+
+/* ---------------- modals ---------------- */
+function Modal({ title, children, onClose, width = 440 }) {
+  useEffect(() => { const k = (e) => e.key === 'Escape' && onClose && onClose(); window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, [onClose]);
+  return html`<div className="scrim" onMouseDown=${(e) => { if (e.target === e.currentTarget && onClose) onClose(); }}>
+    <div className="modal" role="dialog" aria-modal="true" aria-label=${title} style=${{ width }}>${children}</div></div>`;
+}
+function ConfirmModal({ title, body, confirmLabel, danger, onConfirm, onCancel, icon = 'alert' }) {
+  return html`<${Modal} title=${title} onClose=${onCancel} width=${420}>
+    <div className="cm-head"><span className=${'m-icon' + (danger ? ' danger' : '')}><${Icon} name=${icon} size=${16} /></span>
+      <h2 className="m-title">${title}</h2>
+      <button type="button" className="iconbtn sm cm-x" aria-label="Close" onClick=${onCancel}><${Icon} name="x" size=${16} /></button></div>
+    <div className="m-sub">${body}</div>
+    <div className="m-foot"><button className="btn btn-sec" onClick=${onCancel}>Cancel</button>
+      <button className=${'btn ' + (danger ? 'btn-danger' : 'btn-pri')} onClick=${onConfirm} autoFocus=${true}>${confirmLabel}</button></div>
+  </${Modal}>`;
+}
+
+/* ---------------- name modal (create + rename) ---------------- */
+function NameModal({ mode = 'create', initial = '', taken = [], onSubmit, onCancel }) {
+  const [name, setName] = useState(initial);
+  const [err, setErr] = useState('');
+  const create = mode === 'create';
+  const submit = (e) => { e.preventDefault(); const n = name.trim();
+    if (!n) return setErr('Enter a name for your pipeline.');
+    if (n.length > 60) return setErr('Keep the name under 60 characters.');
+    if (n !== initial && taken.some((t) => t.toLowerCase() === n.toLowerCase())) return setErr(`A pipeline called “${n}” already exists.`);
+    onSubmit(n); };
+  return html`<${Modal} title=${create ? 'New pipeline' : 'Rename pipeline'} onClose=${onCancel}>
+    <form onSubmit=${submit} noValidate>
+      <div className="m-head"><span className="m-icon"><${Icon} name=${create ? 'job' : 'pencil'} size=${16} color="#7F56D9" /></span>
+        <button type="button" className="iconbtn" aria-label="Close" onClick=${onCancel}><${Icon} name="x" size=${18} /></button></div>
+      <h2 className="m-title">${create ? 'Create a new pipeline' : 'Rename pipeline'}</h2>
+      <p className="m-sub">${create ? 'Give it a name you’ll recognise in the pipelines list. You can change it later.' : 'Runs, schedules and alerts stay attached to this pipeline.'}</p>
+      <${Field} label="Pipeline name" required htmlFor="np-name" error=${err}>
+        <${Input} id="np-name" value=${name} onChange=${(v) => { setName(v); setErr(''); }} placeholder="e.g. shopify-orders-daily" invalid=${err} autoFocus=${true} autoComplete="off" />
+      </${Field}>
+      <div className="m-foot"><button type="button" className="btn btn-sec" onClick=${onCancel}>Cancel</button>
+        <button type="submit" className="btn btn-pri">${create ? 'Create pipeline' : 'Save name'}</button></div>
+    </form></${Modal}>`;
+}
+
+/* ---------------- seed data: saved pipelines (fictional Northwind Goods) ---------------- */
+const DEFAULT_SETTINGS = { timeoutOn: false, timeout: 1, timeoutUnit: '', concurrencyOn: false, concurrency: 2 };
+function agoDate(days, h, m) { const d = new Date(Date.now() - days * 86400000); d.setHours(h, m, 0, 0); return d.getTime(); }
+const sched = (patch) => ({ schedule: { ...DEFAULT_SCHEDULE, ...patch } });
+
+function buildGraph(pid, trig, tasks, published = false) {
+  const ids = [];
+  const nodes = [];
+  const tid = `${pid}-t`;
+  nodes.push({ id: tid, type: trig.type, name: trig.name, parent: null, cfg: trig.cfg || {}, status: null, duration: '', logs: [], ran: false, published });
+  tasks.forEach((t, i) => {
+    const id = `${pid}-${i + 1}`; ids.push(id);
+    const parent = t.after == null ? tid : ids[t.after];
+    nodes.push({ id, type: t.type, name: t.name, parent, cfg: { description: '', ...t.cfg }, status: t.status || null,
+      duration: t.duration || '', logs: t.logs || [], ran: !!t.status, published });
+  });
+  return nodes;
+}
+
+const FAIL_LOGS = [
+  '02:30:04  INFO  Cloning northwind/analytics-dbt @ main',
+  '02:30:11  INFO  Running: dbt build --select marts.sales',
+  '02:31:52  ERROR Database Error in model fct_opportunities (models/marts/sales/fct_opportunities.sql)',
+  '02:31:52  ERROR   column "account_tier" does not exist',
+  '02:31:52  ERROR Completed with 1 error. PASS=37 WARN=0 ERROR=1 SKIP=4',
+];
+const OK_INGEST_LOGS = [
+  '02:30:01  INFO  Starting ingestion from salesforce_crm.opportunities',
+  '02:30:02  INFO  Discovered 1 stream, sync mode: incremental (cursor: SystemModstamp)',
+  '02:31:18  INFO  Extracted 18,204 records',
+  '02:31:44  INFO  Loaded 18,204 rows into warehouse.raw',
+  '02:31:44  INFO  Task finished in 1m 43s',
+];
+
+const SEED = [
+  { id: 'p1', name: 'salesforce-to-snowflake-daily', env: 'prod', compute: 'l', alerts: 2, pub: 'published', paused: false,
+    failTask: 2, failError: 'Database Error in model fct_opportunities: column "account_tier" does not exist',
+    created: agoDate(212, 10, 4), updated: agoDate(3, 18, 22), runs: ['failed', 'failed', 'failed', 'success', 'success'],
+    trig: { type: 'scheduled', name: 'Daily at 02:30', cfg: sched({ every: 'day', time: '02:30', cron: '30 2 * * *' }) },
+    tasks: [
+      { type: 'ingestion', name: 'salesforce_opportunities', cfg: { connector: 'salesforce_crm.opportunities' }, status: 'success', duration: '1m 43s', logs: OK_INGEST_LOGS },
+      { type: 'ingestion', name: 'salesforce_accounts', cfg: { connector: 'salesforce_crm.accounts' }, status: 'success', duration: '58s' },
+      { type: 'modeling', name: 'sales_marts', after: 0, cfg: { repo: 'northwind/analytics-dbt', commands: ['dbt build --select marts.sales'] }, status: 'failed', logs: FAIL_LOGS },
+      { type: 'python', name: 'notify_sales_ops', after: 2, cfg: { repo: 'northwind/data-scripts', file: 'scripts/notify_sales_ops.py' }, status: 'aborted' },
+    ] },
+  { id: 'p2', name: 'stripe-revenue-hourly', env: 'prod', compute: 's', alerts: 1, pub: 'published', paused: false,
+    created: agoDate(160, 14, 40), updated: agoDate(12, 11, 5), runs: ['success', 'success', 'success', 'success', 'success'],
+    trig: { type: 'scheduled', name: 'Every hour at :15', cfg: sched({ every: 'hour', minute: '15', cron: '15 * * * *' }) },
+    tasks: [
+      { type: 'ingestion', name: 'stripe_charges', cfg: { connector: 'stripe_account.charges' } },
+      { type: 'modeling', name: 'revenue_models', cfg: { repo: 'northwind/analytics-dbt', commands: ['dbt run'] } },
+    ] },
+  { id: 'p3', name: 'marketing-data-sync', env: 'prod', compute: 'm', alerts: 2, pub: 'published', paused: false,
+    created: agoDate(130, 9, 12), updated: agoDate(1, 16, 48), runs: ['success', 'success', 'success', 'failed', 'success'],
+    trig: { type: 'scheduled', name: 'Daily at 06:00', cfg: sched({ every: 'day', time: '06:00', cron: '0 6 * * *' }) },
+    tasks: [
+      { type: 'ingestion', name: 'google_ads_campaigns', cfg: { connector: 'google_ads.campaign_stats' } },
+      { type: 'ingestion', name: 'hubspot_contacts', cfg: { connector: 'hubspot_crm.contacts' } },
+      { type: 'modeling', name: 'marketing_attribution', after: 0, cfg: { repo: 'northwind/analytics-dbt', commands: ['dbt run --select marketing', 'dbt test --select marketing'] } },
+      { type: 'python', name: 'refresh_fx_rates', after: 1, cfg: { repo: 'northwind/data-scripts', file: 'scripts/refresh_fx_rates.py' } },
+    ] },
+  { id: 'p4', name: 'hubspot-contacts-sync', env: 'stg', compute: 's', alerts: 0, pub: 'published', paused: true,
+    created: agoDate(98, 12, 30), updated: agoDate(9, 10, 2), runs: ['success', 'success', 'failed', 'success', 'success'],
+    trig: { type: 'scheduled', name: 'Daily at 07:00', cfg: sched({ every: 'day', time: '07:00', cron: '0 7 * * *' }) },
+    tasks: [{ type: 'ingestion', name: 'hubspot_contacts', cfg: { connector: 'hubspot_crm.contacts' } }] },
+  { id: 'p5', name: 'dbt-marketing-models', env: 'stg', compute: 'm', alerts: 0, pub: 'published', paused: false,
+    created: agoDate(75, 15, 0), updated: agoDate(2, 9, 41), runs: ['success', 'success', 'success', 'failed', 'success'],
+    trig: { type: 'pr', name: 'PRs to main', cfg: { repo: 'northwind/analytics-dbt', branch: 'main' } },
+    tasks: [{ type: 'modeling', name: 'marketing_models', cfg: { repo: 'northwind/analytics-dbt', commands: ['dbt build'] } }] },
+  { id: 'p6', name: 'shopify-orders-incremental', env: 'prod', compute: 'm', alerts: 1, pub: 'published', paused: false,
+    created: agoDate(64, 11, 20), updated: agoDate(5, 13, 15), runs: ['success', 'success', 'success', 'success', 'success'],
+    trig: { type: 'webhook', name: 'Order webhook', cfg: { secret: 'k3x9q2mf' } },
+    tasks: [
+      { type: 'ingestion', name: 'shopify_orders', cfg: { connector: 'shopify_store.orders' } },
+      { type: 'modeling', name: 'order_facts', cfg: { repo: 'northwind/analytics-dbt', commands: ['dbt run'] } },
+    ] },
+  { id: 'p7', name: 'google-ads-spend-weekly', env: 'prod', compute: 'xs', alerts: 0, pub: 'published', paused: false,
+    created: agoDate(30, 8, 5), updated: agoDate(30, 8, 40), runs: ['success', 'success', 'success'],
+    trig: { type: 'scheduled', name: 'Mondays at 08:00', cfg: sched({ every: 'week', dow: '1', time: '08:00', cron: '0 8 * * 1' }) },
+    tasks: [{ type: 'ingestion', name: 'google_ads_spend', cfg: { connector: 'google_ads.campaign_stats' } }] },
+  { id: 'p8', name: 'finance-fx-rates', env: 'prod', compute: 'xs', alerts: 0, pub: 'published', paused: false,
+    created: agoDate(190, 17, 30), updated: agoDate(44, 10, 10), runs: ['success', 'success', 'success', 'success', 'success'],
+    trig: { type: 'scheduled', name: 'Daily at 00:30', cfg: sched({ every: 'day', time: '00:30', cron: '30 0 * * *' }) },
+    tasks: [{ type: 'python', name: 'fetch_fx_rates', cfg: { repo: 'northwind/data-scripts', file: 'scripts/refresh_fx_rates.py' } }] },
+  { id: 'p9', name: 'churn-features-weekly', env: 'dev', compute: 'm', alerts: 0, pub: 'draft', paused: false,
+    created: agoDate(6, 10, 0), updated: agoDate(0, 11, 26), runs: ['success'],
+    trig: { type: 'scheduled', name: 'Sundays at 22:00', cfg: sched({ every: 'week', dow: '0', time: '22:00', cron: '0 22 * * 0' }) },
+    tasks: [
+      { type: 'modeling', name: 'customer_features', cfg: { repo: 'northwind/ml-features', commands: ['dbt deps', 'dbt build --select features'] } },
+      { type: 'python', name: 'score_churn', cfg: { repo: 'northwind/ml-features', file: 'models/score_churn.py' } },
+    ] },
+  { id: 'p10', name: 'product-events-backfill', env: 'dev', compute: 'l', alerts: 0, pub: 'draft', paused: false,
+    created: agoDate(2, 15, 12), updated: agoDate(2, 15, 31), runs: [],
+    trig: { type: 'manual', name: 'Manual trigger', cfg: {} },
+    tasks: [{ type: 'ingestion', name: 'app_users', cfg: { connector: 'postgres_app.users' } }] },
+];
+function seedPipelines() {
+  return SEED.map((s) => ({ id: s.id, name: s.name, env: s.env, compute: s.compute, alerts: s.alerts, pub: s.pub, paused: s.paused,
+    created: s.created, updated: s.updated, settings: { ...DEFAULT_SETTINGS },
+    nodes: buildGraph(s.id, s.trig, s.tasks, s.pub !== 'draft') })).map((p, i) => ({ ...p, runs: genHistory(SEED[i], p.nodes, p.compute) }));
+}
+
+/* layout for saved graphs: column per depth, first child shares its parent's row */
+function layoutGraph(nodes) {
+  const pos = {}; let row = 0;
+  const trig = nodes.find((n) => !n.parent);
+  if (!trig) return pos;
+  const walk = (n, depth, r) => {
+    const kind = TYPES[n.type].kind;
+    pos[n.id] = { x: depth * 310, y: r * 112 + (kind === 'trigger' ? 6 : 0) };
+    const kids = nodes.filter((c) => c.parent === n.id);
+    kids.forEach((c, i) => { if (i > 0) row += 1; walk(c, depth + 1, i === 0 ? r : row); });
+  };
+  walk(trig, 0, 0);
+  return pos;
+}
+
+/* ---------------- list helpers ---------------- */
+const STATUS_META = {
+  active: { label: 'Active', cls: 'ps-active', order: 0 },
+  paused: { label: 'Paused', cls: 'ps-paused', order: 1 },
+  unpublished: { label: 'Unpublished', cls: 'ps-draft', order: 2 },
+};
+const statusOf = (p) => (p.paused ? 'paused' : p.pub === 'draft' ? 'unpublished' : 'active');
+function fmtDate(ts) {
+  const d = new Date(ts);
+  return `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()} at ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+function nextRunInfo(p) {
+  const st = statusOf(p);
+  if (st === 'unpublished') return { text: 'Not scheduled', ts: Infinity, muted: true, tip: 'Publish this pipeline to start its schedule.' };
+  if (st === 'paused') return { text: 'Paused', ts: Infinity, muted: true, tip: 'Resume to schedule the next run.' };
+  const trig = p.nodes.find((n) => TYPES[n.type].kind === 'trigger');
+  if (!trig) return { text: 'No trigger', ts: Infinity, muted: true };
+  if (trig.type === 'scheduled') {
+    const c = trig.cfg.schedule || DEFAULT_SCHEDULE;
+    const tz = TZS.find((z) => z.id === c.tz) || TZS[0];
+    const t = nextRunDate(ruleFromSchedule(c), tz);
+    if (t) return { text: formatZoned(t, tz), ts: t.getTime() };
+  }
+  const l = nextRunLabel(trig);
+  return { text: trig.type === 'manual' ? 'Manual only' : trig.type === 'webhook' ? 'On webhook' : 'On pull request', ts: Infinity, muted: true, tip: l.text };
+}
+const RUN_TIP = { success: 'Success', failed: 'Failure', aborted: 'Stopped', running: 'Running' };
+const RUN_META = {
+  success: { icon: 'check', cls: 'rr-ok', label: 'Succeeded' },
+  failed: { icon: 'x', cls: 'rr-fail', label: 'Failed' },
+  aborted: { icon: 'minus', cls: 'rr-ab', label: 'Stopped' },
+};
+
+function RecentRuns({ runs }) {
+  const last = runs.slice(0, 5);
+  const slots = last.map((r) => html`<${Tip} key=${r.id} label=${html`<b>${RUN_TIP[r.status]}</b><span className="tip-sub">${fmtDate(r.start)}</span>`}>
+      ${r.status === 'running'
+        ? html`<span className="rr rr-run" tabIndex="0" aria-label=${`Running, started ${fmtDate(r.start)}`}><span className="spin sm"></span></span>`
+        : html`<span className=${'rr ' + RUN_META[r.status].cls} tabIndex="0" aria-label=${`${RUN_TIP[r.status]}, ${fmtDate(r.start)}`}><${Icon} name=${RUN_META[r.status].icon} size=${9} sw=${3} color="#fff" /></span>`}
+    </${Tip}>`);
+  while (slots.length < 5) slots.push(html`<span key=${'e' + slots.length} className="rr-empty" aria-hidden="true"></span>`);
+  return html`<div className="rrow" aria-label=${last.length ? `Last ${last.length} runs: ${last.map((r) => (r.status === 'running' ? 'Running' : RUN_META[r.status].label)).join(', ')}` : 'No runs yet'}>${slots}</div>`;
+}
+const isRunning = (p) => p.runs.some((r) => r.status === 'running');
+const lastDone = (p) => p.runs.find((r) => r.status !== 'running');
+
+function SortHead({ col, label, sort, setSort, className }) {
+  const on = sort.col === col;
+  const next = () => setSort(on ? { col, dir: sort.dir === 'asc' ? 'desc' : 'asc' } : { col, dir: col === 'updated' || col === 'created' || col === 'alerts' ? 'desc' : 'asc' });
+  return html`<th className=${className} aria-sort=${on ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}>
+    <button className=${'th-btn' + (on ? ' on' : '')} onClick=${next}>${label}
+      <span className="th-arrow"><${Icon} name=${on && sort.dir === 'desc' ? 'arrowDown' : 'arrowUp'} size=${12} sw=${2} /></span></button></th>`;
+}
+
+function RowMenu({ p, onRun, onTogglePause, onRename, onDelete, onOpen, close }) {
+  const st = statusOf(p);
+  const item = (icon, label, fn, opts = {}) => html`<button role="menuitem" className=${opts.danger ? 'danger' : ''} disabled=${opts.disabled}
+    title=${opts.title || ''} onClick=${(e) => { e.stopPropagation(); close(); fn(); }}><${Icon} name=${icon} size=${14} />${label}</button>`;
+  return html`<div className="menu right rowmenu" role="menu" onClick=${(e) => e.stopPropagation()}>
+    ${item('play', 'Run now', onRun, { disabled: isRunning(p) })}
+    ${st === 'paused' ? item('play', 'Resume', onTogglePause)
+      : item('pause', 'Pause', onTogglePause, { disabled: st === 'unpublished', title: st === 'unpublished' ? 'Publish this pipeline before pausing it' : '' })}
+    ${item('job', 'Open in editor', onOpen)}
+    ${item('pencil', 'Rename', onRename)}
+    <div className="menusep"></div>
+    ${item('trash', 'Delete', onDelete, { danger: true })}
+  </div>`;
+}
+
+function PipelinesList({ pipelines, onOpen, onRun, onTogglePause, onRename, onDelete, onNew, onAlerts }) {
+  const [sort, setSort] = useState({ col: 'updated', dir: 'desc' });
+  const [q, setQ] = useState('');
+  const [fStatus, setFStatus] = useState('');
+  const [fEnv, setFEnv] = useState('');
+  const [fCompute, setFCompute] = useState('');
+  const [menuFor, setMenuFor] = useState(null);
+  useEffect(() => { if (!menuFor) return; const c = () => setMenuFor(null); setTimeout(() => window.addEventListener('click', c), 0); return () => window.removeEventListener('click', c); }, [menuFor]);
+
+  const rows = useMemo(() => {
+    const ql = q.trim().toLowerCase();
+    let r = pipelines.map((p) => ({ p, st: statusOf(p), nr: nextRunInfo(p) }))
+      .filter(({ p, st }) => (!ql || p.name.toLowerCase().includes(ql)) && (!fStatus || st === fStatus) && (!fEnv || p.env === fEnv) && (!fCompute || p.compute === fCompute));
+    const ci = (id) => COMPUTE.findIndex((c) => c.id === id);
+    const fails = (p) => p.runs.slice(0, 5).filter((x) => x.status === 'failed' || x.status === 'aborted').length * 10 + (p.runs.length ? 0 : 5);
+    const key = {
+      alerts: (x) => x.p.alerts, name: (x) => x.p.name.toLowerCase(), status: (x) => STATUS_META[x.st].order,
+      next: (x) => x.nr.ts, created: (x) => x.p.created, updated: (x) => x.p.updated,
+      env: (x) => ENVS.findIndex((e) => e.id === x.p.env), compute: (x) => ci(x.p.compute), runs: (x) => fails(x.p),
+    }[sort.col];
+    r.sort((a, b) => { const A = key(a), B = key(b); const c = A < B ? -1 : A > B ? 1 : 0; return (sort.dir === 'asc' ? c : -c) || a.p.name.localeCompare(b.p.name); });
+    return r;
+  }, [pipelines, sort, q, fStatus, fEnv, fCompute]);
+
+  const filtered = q || fStatus || fEnv || fCompute;
+  const clear = () => { setQ(''); setFStatus(''); setFEnv(''); setFCompute(''); };
+  const sh = (col, label, cls) => html`<${SortHead} col=${col} label=${label} sort=${sort} setSort=${setSort} className=${cls} />`;
+  const failing = pipelines.filter((p) => lastDone(p)?.status === 'failed').length;
+
+  return html`<div className="list">
+    <div className="list-sub">
+      <span><b>${pipelines.length}</b> pipelines</span>
+      ${failing > 0 && html`<button className="failchip" onClick=${() => setSort({ col: 'runs', dir: 'desc' })}><span className="dot"></span>${failing} failing on last run</button>`}
+      ${filtered && html`<button className="linkbtn" onClick=${clear}>Clear filters</button>`}
+    </div>
+    <div className="tablewrap">
+      <table className="ptable">
+        <thead>
+          <tr>
+            ${sh('alerts', html`<${Icon} name="bell" size=${14} />`, 'c-bell')}
+            ${sh('name', 'Pipeline name', 'c-name')}
+            ${sh('status', 'Run status', 'c-status')}
+            ${sh('next', 'Next run', 'c-next')}
+            ${sh('created', 'Created at', 'c-date')}
+            ${sh('updated', 'Last updated', 'c-date')}
+            ${sh('env', 'Environment', 'c-env')}
+            ${sh('compute', 'Compute', 'c-compute')}
+            ${sh('runs', 'Recent runs', 'c-runs')}
+            <th className="c-act"><span className="sr">Actions</span></th>
+          </tr>
+          <tr className="filters">
+            <th></th>
+            <th><div className="fsearch"><${Icon} name="search" size=${13} color="#98A2B3" />
+              <input id="flt-name" aria-label="Search pipeline names" placeholder="Search" value=${q} onChange=${(e) => setQ(e.target.value)} />
+              ${q && html`<button aria-label="Clear search" onClick=${() => setQ('')}><${Icon} name="x" size=${12} /></button>`}</div></th>
+            <th><${Select} id="flt-status" value=${fStatus} onChange=${setFStatus} options=${[{ value: '', label: 'All' }, ...Object.entries(STATUS_META).map(([k, v]) => ({ value: k, label: v.label }))]} /></th>
+            <th></th><th></th><th></th>
+            <th><${Select} id="flt-env" value=${fEnv} onChange=${setFEnv} options=${[{ value: '', label: 'All' }, ...ENVS.map((e) => ({ value: e.id, label: e.label }))]} /></th>
+            <th><${Select} id="flt-compute" value=${fCompute} onChange=${setFCompute} options=${[{ value: '', label: 'All' }, ...COMPUTE.map((c) => ({ value: c.id, label: c.label }))]} /></th>
+            <th></th><th></th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows.map(({ p, st, nr }) => {
+            const trig = p.nodes.find((n) => TYPES[n.type].kind === 'trigger');
+            const env = ENVS.find((e) => e.id === p.env);
+            return html`<tr key=${p.id} className=${p.runs[0]?.status === 'failed' ? 'is-failing' : ''} onClick=${() => onOpen(p.id)} tabIndex="0"
+              onKeyDown=${(e) => { if (e.key === 'Enter') onOpen(p.id); }}>
+              <td className="c-bell"><${Tip} label=${p.alerts ? `${p.alerts} alert${p.alerts > 1 ? 's' : ''} set` : 'No alerts set'}>
+                <button className=${'bellbtn' + (p.alerts ? ' on' : '')} aria-label=${p.alerts ? `${p.alerts} alerts set` : 'No alerts set'}
+                  onClick=${(e) => { e.stopPropagation(); onAlerts(p.id); }}><${Icon} name="bell" size=${15} fill=${p.alerts ? 'currentColor' : 'none'} /></button></${Tip}></td>
+              <td className="c-name"><div className="namecell">
+                ${trig ? html`<span title=${TYPES[trig.type].label + ' trigger'}><${TypeIcon} type=${trig.type} size=${20} /></span>` : html`<span className="ticon empty"></span>`}
+                <span className="pname">${p.name}</span></div></td>
+              <td className="c-status"><span className=${'pstat ' + STATUS_META[st].cls}><span className="dot"></span>${STATUS_META[st].label}</span></td>
+              <td className=${'c-next' + (nr.muted ? ' muted' : '')} title=${nr.tip || ''}>${nr.text}</td>
+              <td className="c-date">${fmtDate(p.created)}</td>
+              <td className="c-date">${fmtDate(p.updated)}</td>
+              <td className="c-env"><span className=${'envtag env-' + env.id}>${env.short}</span><span className="envname">${env.label}</span></td>
+              <td className="c-compute">${COMPUTE.find((c) => c.id === p.compute).label}</td>
+              <td className="c-runs"><${RecentRuns} runs=${p.runs} /></td>
+              <td className="c-act"><div className="split">
+                <button className="iconbtn sm" aria-label=${`Actions for ${p.name}`} aria-haspopup="menu" aria-expanded=${menuFor === p.id}
+                  onClick=${(e) => { e.stopPropagation(); setMenuFor(menuFor === p.id ? null : p.id); }}><${Icon} name="moreV" size=${16} /></button>
+                ${menuFor === p.id && html`<${RowMenu} p=${p} close=${() => setMenuFor(null)} onRun=${() => onRun(p.id)} onTogglePause=${() => onTogglePause(p.id)}
+                  onRename=${() => onRename(p.id)} onDelete=${() => onDelete(p.id)} onOpen=${() => onOpen(p.id)} />`}
+              </div></td>
+            </tr>`; })}
+        </tbody>
+      </table>
+      ${!rows.length && html`<div className="list-empty">
+        ${pipelines.length ? html`<${Icon} name="search" size=${22} color="#98A2B3" /><div className="el-t">No pipelines match these filters</div>
+            <button className="btn btn-sec" onClick=${clear}>Clear filters</button>`
+          : html`<span className="m-icon"><${Icon} name="job" size=${20} color="#7F56D9" /></span><div className="el-t">No pipelines yet</div>
+            <div className="el-s">Start with a trigger, then chain the tasks that move and model your data.</div>
+            <button className="btn btn-pri" onClick=${onNew}><${Icon} name="plus" size=${15} />New Pipeline</button>`}
+      </div>`}
+    </div>
+  </div>`;
+}
+
+/* ---------------- run history ---------------- */
+const CU_RATE = { xs: 25, s: 50, m: 100, l: 200 }; // CUs per hour
+const TRIGGER_RUN_LABEL = { scheduled: 'On schedule', manual: 'Manual', webhook: 'Webhook', pr: 'Pull request' };
+const RUN_STATUS = {
+  running: { label: 'Running', cls: 'rs-run' },
+  success: { label: 'Succeeded', cls: 'rs-ok' },
+  failed: { label: 'Failed', cls: 'rs-fail' },
+  aborted: { label: 'Stopped', cls: 'rs-ab' },
+};
+const TASK_STATUS_LABEL = { success: 'Succeeded', failed: 'Failed', aborted: 'Skipped', running: 'Running' };
+function strHash(s) { let h = 2166136261; for (const c of s) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; }
+const runIdFor = (pid, seq) => `${strHash(pid + 'run').toString(16).padStart(8, '0').slice(0, 8)}-${5100 + seq}`;
+const cusFor = (compute, sec) => Math.round(((CU_RATE[compute] || 25) * sec) / 360) / 10;
+function cadenceMs(trig) {
+  if (!trig) return 3 * 86400000;
+  if (trig.type === 'scheduled') { const e = (trig.cfg.schedule || DEFAULT_SCHEDULE).every; return e === 'hour' ? 3600000 : e === 'week' ? 7 * 86400000 : e === 'month' ? 30 * 86400000 : 86400000; }
+  return { webhook: 5 * 3600000, pr: 2 * 86400000, manual: 3 * 86400000 }[trig.type];
+}
+const ERRORS = {
+  ingestion: 'Connection to source timed out after 300s',
+  modeling: 'Compilation Error in model stg_orders: depends on a node named "raw_orders" which was not found',
+  python: 'Process exited with code 1: KeyError: \'rate\'',
+  job: 'Child pipeline finished with 1 failed task',
+};
+// one run's per-task results; failAt = index into task list
+function taskResults(taskNodes, failAt) {
+  const failedId = failAt != null ? taskNodes[failAt]?.id : null;
+  const downstream = new Set();
+  if (failedId) { const walk = (id) => taskNodes.filter((t) => t.parent === id).forEach((t) => { downstream.add(t.id); walk(t.id); }); walk(failedId); }
+  return taskNodes.map((t) => ({ id: t.id, name: t.name, type: t.type,
+    status: t.id === failedId ? 'failed' : downstream.has(t.id) ? 'aborted' : 'success',
+    dur: downstream.has(t.id) ? 0 : randDur(t.type) }));
+}
+function runDuration(results) { return Math.max(20, Math.round(results.reduce((a, r) => a + r.dur, 0) * 0.75)); }
+
+function genHistory(seed, nodes, compute) {
+  const trig = nodes.find((n) => !n.parent);
+  const taskNodes = nodes.filter((n) => n.parent);
+  const statuses = [...seed.runs];
+  if (statuses.length >= 5) statuses.push('success', 'success', 'success', 'failed', 'success', 'success', 'success');
+  const gap = cadenceMs(trig);
+  const runs = statuses.map((st, k) => {
+    let failAt = null, error = null;
+    if (st === 'failed') {
+      if (seed.failTask != null) { failAt = seed.failTask; error = seed.failError; }
+      else { failAt = taskNodes.length - 1; error = ERRORS[taskNodes[failAt].type]; }
+    }
+    const tasks = taskResults(taskNodes, failAt);
+    const dur = runDuration(tasks);
+    const seq = statuses.length - 1 - k;
+    const scheduled = trig && trig.type === 'scheduled';
+    const trigger = !trig ? 'Manual' : scheduled && k % 6 === 5 ? 'Manual' : TRIGGER_RUN_LABEL[trig.type];
+    const start = Math.round((Date.now() - (k + 0.35) * gap - Math.random() * gap * 0.1) / 60000) * 60000;
+    return { id: runIdFor(seed.id, seq), seq, status: st, trigger, scope: 'full', target: null, start, dur, cus: cusFor(compute, dur), tasks, error };
+  });
+  return runs;
+}
+
+function newRun(p, { scope = 'full', target = null, trigger = 'Manual', tasks }) {
+  const seq = p.runs.length ? Math.max(...p.runs.map((r) => r.seq)) + 1 : 0;
+  return { id: runIdFor(p.id, seq), seq, status: 'running', trigger, scope, target, start: Date.now(), dur: 0, cus: 0,
+    tasks: tasks.map((t) => ({ id: t.id, name: t.name, type: t.type, status: 'running', dur: 0 })), error: null };
+}
+
+/* glyph showing how much of the pipeline a run covered (Figma run icons) */
+function RunGlyph({ run }) {
+  const tip = run.scope === 'node' ? `Single task: ${run.target}` : run.scope === 'partial' ? 'Run from failed' : 'Full pipeline run';
+  const bars = run.scope === 'node' ? [0, 1, 0] : run.scope === 'partial' ? [0, 1, 1] : [1, 1, 1];
+  return html`<span className="rglyph" title=${tip} aria-label=${tip}>
+    <svg width="20" height="12" viewBox="0 0 20 12" aria-hidden="true">
+      ${bars.map((on, i) => html`<rect key=${i} x=${1 + i * 6.5} y="1.5" width="4.5" height="9" rx="1.2"
+        fill=${on ? 'var(--brand)' : 'none'} stroke=${on ? 'var(--brand)' : '#B9A6F0'} strokeWidth="1.2" />`)}
+    </svg></span>`;
+}
+
+function RunStatusPill({ status, onStop }) {
+  const m = RUN_STATUS[status];
+  return html`<span className=${'rstat ' + m.cls}>
+    ${status === 'running' ? html`<span className="spin sm light"></span>` : html`<span className="dot"></span>`}${m.label}
+    ${status === 'running' && onStop && html`<button className="rstop" aria-label="Stop run" title="Stop run" onClick=${(e) => { e.stopPropagation(); onStop(); }}><span></span></button>`}
+  </span>`;
+}
+
+function useTicker(on) {
+  const [, setT] = useState(0);
+  useEffect(() => { if (!on) return; const i = setInterval(() => setT((x) => x + 1), 1000); return () => clearInterval(i); }, [on]);
+}
+
+function RunsView({ p, activeRunId, onStop, onRunNow, onRunFromFailed, onOpenEditor, onDiagnose, trigger, nextRun }) {
+  const [sort, setSort] = useState({ col: 'start', dir: 'desc' });
+  const [q, setQ] = useState('');
+  const [fStatus, setFStatus] = useState('');
+  const [fTrigger, setFTrigger] = useState('');
+  const [open, setOpen] = useState(null);
+  const hasRunning = p.runs.some((r) => r.status === 'running');
+  useTicker(hasRunning);
+
+  const rows = useMemo(() => {
+    const ql = q.trim().toLowerCase();
+    const r = p.runs.filter((x) => (!ql || x.id.includes(ql)) && (!fStatus || x.status === fStatus) && (!fTrigger || x.trigger === fTrigger));
+    const live = (x) => (x.status === 'running' ? Math.round((Date.now() - x.start) / 1000) : x.dur);
+    const key = { id: (x) => x.seq, status: (x) => x.status, trigger: (x) => x.trigger, start: (x) => x.start, dur: live, cus: (x) => x.cus }[sort.col];
+    return [...r].sort((a, b) => { const A = key(a), B = key(b); const c = A < B ? -1 : A > B ? 1 : 0; return sort.dir === 'asc' ? c : -c; });
+  }, [p.runs, sort, q, fStatus, fTrigger, hasRunning && Math.floor(Date.now() / 1000)]);
+
+  const triggers = [...new Set(p.runs.map((r) => r.trigger))];
+  const sh = (col, label, cls) => html`<${SortHead} col=${col} label=${label} sort=${sort} setSort=${setSort} className=${cls} />`;
+
+  // streak of failures for the callout
+  let streak = 0; for (const r of p.runs) { if (r.status === 'running') continue; if (r.status === 'failed') streak++; else break; }
+  const lastFail = streak ? p.runs.find((r) => r.status === 'failed') : null;
+  const failedTask = lastFail ? lastFail.tasks.find((t) => t.status === 'failed') : null;
+  const comp = COMPUTE.find((c) => c.id === p.compute);
+  const env = ENVS.find((e) => e.id === p.env);
+  const done = p.runs.filter((r) => r.status !== 'running').slice(0, 10);
+  const rate = done.length ? Math.round((done.filter((r) => r.status === 'success').length / done.length) * 100) : null;
+
+  return html`<div className="runs">
+    <div className="runs-meta">
+      <div><span>Next run</span><b className=${nextRun.muted ? 'muted' : ''}>${nextRun.text}</b></div>
+      <div><span>Trigger</span><b>${trigger ? html`<${TypeIcon} type=${trigger.type} size=${16} />${trigger.name}` : 'None yet'}</b></div>
+      <div><span>Success rate</span><b>${rate == null ? '–' : `${rate}%`}<small>${rate == null ? '' : ` last ${done.length} runs`}</small></b></div>
+      <div><span>Compute</span><b>${comp.label}</b></div>
+      <div><span>Environment</span><b><span className=${'envtag env-' + env.id}>${env.short}</span>${env.label}</b></div>
+    </div>
+
+    ${lastFail && failedTask && !hasRunning && html`<div className="failbanner" role="status">
+      <${Icon} name="alert" size=${18} />
+      <div className="fb-text">
+        <b>${streak > 1 ? `The last ${streak} runs failed` : 'The last run failed'} at ${failedTask.name}</b>
+        <span>${lastFail.error}</span>
+      </div>
+      <button className="btn btn-sec" onClick=${onRunFromFailed}><${Icon} name="reset" size=${14} />Run from failed</button>
+      <button className="btn btn-ai" onClick=${() => onDiagnose(lastFail.id)}><${Icon} name="sparkles" size=${14} />Diagnose with AI</button>
+    </div>`}
+
+    <div className="tablewrap">
+      <table className="ptable rtable">
+        <thead>
+          <tr>
+            ${sh('id', 'Run ID', 'c-rid')}
+            ${sh('status', 'Status', 'c-rstatus')}
+            ${sh('trigger', 'Trigger', 'c-rtrig')}
+            ${sh('start', 'Start time', 'c-rstart')}
+            ${sh('dur', 'Duration', 'c-rdur')}
+            ${sh('cus', 'CUs consumed', 'c-rcus')}
+            <th className="c-act"><span className="sr">Details</span></th>
+          </tr>
+          <tr className="filters">
+            <th><div className="fsearch"><${Icon} name="search" size=${13} color="#98A2B3" />
+              <input id="flt-run" aria-label="Search run IDs" placeholder="Search" value=${q} onChange=${(e) => setQ(e.target.value)} /></div></th>
+            <th><${Select} id="flt-rstatus" value=${fStatus} onChange=${setFStatus} options=${[{ value: '', label: 'All' }, ...Object.entries(RUN_STATUS).map(([k, v]) => ({ value: k, label: v.label }))]} /></th>
+            <th><${Select} id="flt-rtrig" value=${fTrigger} onChange=${setFTrigger} options=${[{ value: '', label: 'All' }, ...triggers.map((t) => ({ value: t, label: t }))]} /></th>
+            <th></th><th></th><th></th><th></th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows.map((r) => {
+            const isOpen = open === r.id;
+            const dur = r.status === 'running' ? Math.round((Date.now() - r.start) / 1000) : r.dur;
+            return html`<${React.Fragment} key=${r.id}>
+              <tr className=${(isOpen ? 'open ' : '') + (r.status === 'failed' ? 'is-failing' : '')} onClick=${() => setOpen(isOpen ? null : r.id)}
+                tabIndex="0" aria-expanded=${isOpen} onKeyDown=${(e) => { if (e.key === 'Enter') setOpen(isOpen ? null : r.id); }}>
+                <td className="c-rid"><div className="ridcell"><${RunGlyph} run=${r} /><span className="mono">${r.id}</span></div></td>
+                <td><${RunStatusPill} status=${r.status} onStop=${r.id === activeRunId ? onStop : null} /></td>
+                <td>${r.trigger}</td>
+                <td>${fmtDate(r.start)}</td>
+                <td>${fmtDur(dur)}</td>
+                <td>${r.status === 'running' ? html`<span className="muted">–</span>` : r.cus.toFixed(1)}</td>
+                <td className="c-act"><span className=${'chev' + (isOpen ? ' up' : '')}><${Icon} name="chevD" size=${16} /></span></td>
+              </tr>
+              ${isOpen && html`<tr className="rdetail"><td colSpan="7">
+                <div className="rd">
+                  ${r.error && html`<div className="rd-err"><${Icon} name="alert" size=${14} /><span className="mono">${r.error}</span></div>`}
+                  <ol className="rd-tasks">${r.tasks.map((t) => html`<li key=${t.id}>
+                    <${TypeIcon} type=${t.type} size=${20} />
+                    <span className="rd-name">${t.name}</span>
+                    <span className=${'rd-st rd-' + t.status}>${t.status === 'running' ? html`<span className="spin sm"></span>` : html`<span className="dot"></span>`}${TASK_STATUS_LABEL[t.status]}</span>
+                    <span className="rd-dur">${t.status === 'success' || t.status === 'failed' ? fmtDur(t.dur) : ''}</span>
+                  </li>`)}</ol>
+                  <div className="rd-actions">
+                    ${r.status === 'failed' && html`<button className="btn btn-ai btn-sm" onClick=${(e) => { e.stopPropagation(); onDiagnose(r.id); }}><${Icon} name="sparkles" size=${13} />Diagnose with AI</button>`}
+                    <button className="linkbtn" onClick=${(e) => { e.stopPropagation(); onOpenEditor(); }}>View in editor</button>
+                  </div>
+                </div>
+              </td></tr>`}
+            </${React.Fragment}>`; })}
+        </tbody>
+      </table>
+      ${!rows.length && html`<div className="list-empty">
+        ${p.runs.length ? html`<${Icon} name="search" size=${22} color="#98A2B3" /><div className="el-t">No runs match these filters</div>
+            <button className="btn btn-sec" onClick=${() => { setQ(''); setFStatus(''); setFTrigger(''); }}>Clear filters</button>`
+          : html`<span className="m-icon"><${Icon} name="play" size=${20} color="#7F56D9" /></span><div className="el-t">No runs yet</div>
+            <div className="el-s">${p.nodes.some((n) => n.parent) ? 'Run the pipeline to see its history here.' : 'Add a trigger and at least one task in the editor, then run it.'}</div>
+            <div className="row-btns">${p.nodes.some((n) => n.parent) && html`<button className="btn btn-pri" onClick=${onRunNow}><${Icon} name="play" size=${14} />Run now</button>`}
+              <button className="btn btn-sec" onClick=${onOpenEditor}><${Icon} name="job" size=${14} />Open editor</button></div>`}
+      </div>`}
+    </div>
+  </div>`;
+}
+
+/* ---------------- alerts (Figma 4747:65084) ---------------- */
+const SLACK_CHANNELS = ['#critical_alerts', '#data-alerts', '#analytics-eng', '#general_alerts'];
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+const SEED_ALERTS = [
+  { id: 'a1', name: 'Sales pipeline failures', pipelines: ['p1'], slack: '#critical_alerts', emails: ['revops@northwindgoods.com'], on: { failed: true, success: false, duration: false }, durH: 1, durM: 0 },
+  { id: 'a2', name: 'Sales sync running long', pipelines: ['p1', 'p3'], slack: '#data-alerts', emails: ['priya@northwindgoods.com', 'sam@northwindgoods.com'], on: { failed: false, success: false, duration: true }, durH: 1, durM: 30 },
+  { id: 'a3', name: 'Revenue feed failures', pipelines: ['p2'], slack: '#critical_alerts', emails: [], on: { failed: true, success: false, duration: false }, durH: 1, durM: 0 },
+  { id: 'a4', name: 'Marketing daily digest', pipelines: ['p3'], slack: '#general_alerts', emails: ['marketing-ops@northwindgoods.com'], on: { failed: true, success: true, duration: false }, durH: 1, durM: 0 },
+  { id: 'a5', name: 'Order webhook failures', pipelines: ['p6'], slack: '', emails: ['oncall@northwindgoods.com'], on: { failed: true, success: false, duration: false }, durH: 1, durM: 0 },
+];
+const fmtThreshold = (a) => `${a.durH ? a.durH + 'h' : ''}${a.durH && a.durM ? ' ' : ''}${a.durM ? a.durM + 'm' : ''}` || '0m';
+function destSummary(a) {
+  const first = a.slack || a.emails[0] || 'No destination';
+  const more = (a.slack ? a.emails.length : Math.max(0, a.emails.length - 1));
+  return more ? `${first} + ${more}` : first;
+}
+
+function AlertTags({ a }) {
+  return html`<div className="atags">
+    ${a.on.failed && html`<span className="atag at-fail">Failed</span>`}
+    ${a.on.success && html`<span className="atag at-ok">Successful</span>`}
+    ${a.on.duration && html`<span className="atag at-dur">Duration ${fmtThreshold(a)}</span>`}
+  </div>`;
+}
+
+function Toggle({ id, on, onChange, label }) {
+  return html`<button type="button" id=${id} role="switch" aria-checked=${on} aria-label=${label}
+    className=${'switch' + (on ? ' on' : '')} onClick=${() => onChange(!on)}><span></span></button>`;
+}
+
+function EmailChips({ value, onChange, invalid }) {
+  const [text, setText] = useState('');
+  const [err, setErr] = useState('');
+  const commit = () => {
+    const parts = text.split(/[,\s;]+/).map((x) => x.trim()).filter(Boolean);
+    if (!parts.length) return true;
+    const bad = parts.find((x) => !EMAIL_RE.test(x));
+    if (bad) { setErr(`“${bad}” isn’t a valid email address.`); return false; }
+    onChange([...value, ...parts.filter((x) => !value.includes(x))]); setText(''); setErr(''); return true;
+  };
+  return html`<div>
+    <div className=${'chips' + (invalid || err ? ' invalid' : '')} onClick=${(e) => e.currentTarget.querySelector('input').focus()}>
+      ${value.map((e) => html`<span key=${e} className="chip">${e}<button type="button" aria-label=${`Remove ${e}`} onClick=${(ev) => { ev.stopPropagation(); onChange(value.filter((x) => x !== e)); }}><${Icon} name="x" size=${12} /></button></span>`)}
+      <input id="al-email" value=${text} placeholder=${value.length ? 'Add another' : 'name@company.com'} autoComplete="off"
+        onChange=${(e) => { setText(e.target.value); setErr(''); }}
+        onKeyDown=${(e) => { if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); commit(); }
+          if (e.key === 'Backspace' && !text && value.length) onChange(value.slice(0, -1)); }}
+        onBlur=${commit} />
+    </div>
+    ${err ? html`<div className="ferr"><${Icon} name="alert" size=${12} />${err}</div>` : html`<div className="fhint">Press Enter after each address.</div>`}
+  </div>`;
+}
+
+function AlertForm({ initial, pipelines, onCancel, onSave, onDelete, editing }) {
+  const [f, setF] = useState(() => JSON.parse(JSON.stringify(initial)));
+  const [errors, setErrors] = useState({});
+  const dirty = JSON.stringify(f) !== JSON.stringify(initial);
+  const set = (k, v) => { setF((p) => ({ ...p, [k]: v })); setErrors((e) => ({ ...e, [k]: undefined, dest: k === 'slack' || k === 'emails' ? undefined : e.dest })); };
+  const setOn = (k, v) => { setF((p) => ({ ...p, on: { ...p.on, [k]: v } })); setErrors((e) => ({ ...e, on: undefined })); };
+  const others = pipelines.filter((p) => !f.pipelines.includes(p.id));
+  function save() {
+    const e = {};
+    if (!f.name.trim()) e.name = 'Enter a name for this alert.';
+    if (!f.pipelines.length) e.pipelines = 'Choose at least one pipeline.';
+    if (!f.slack && !f.emails.length) e.dest = 'Add a Slack channel or at least one email.';
+    if (!f.on.failed && !f.on.success && !f.on.duration) e.on = 'Turn on at least one alert.';
+    if (f.on.duration && !(f.durH > 0 || f.durM > 0)) e.dur = 'Set a duration longer than 0 minutes.';
+    setErrors(e);
+    if (Object.keys(e).length) return;
+    onSave({ ...f, name: f.name.trim() });
+  }
+  return html`<div className="dhead">
+      <div className="dtitle"><button className="iconbtn sm" aria-label="Back to alerts" onClick=${onCancel}><${Icon} name="chevL" size=${16} /></button>
+        <span>${editing ? 'Edit alert' : 'New Alert'}</span></div>
+      <button className="iconbtn" aria-label="Back to alerts" onClick=${onCancel}><${Icon} name="x" size=${18} /></button>
+    </div>
+    <div className="dbody">
+      <${Field} label="Alert Name" htmlFor="al-name" error=${errors.name} info="Shown in the Slack message and email subject">
+        <${Input} id="al-name" value=${f.name} onChange=${(v) => set('name', v)} placeholder="e.g. Revenue pipeline failures" invalid=${errors.name} autoFocus=${!editing} />
+      </${Field}>
+      <${Field} label="Pipeline" htmlFor="al-pipe-add" error=${errors.pipelines}>
+        <div className=${'chips' + (errors.pipelines ? ' invalid' : '')}>
+          ${f.pipelines.map((id) => { const p = pipelines.find((x) => x.id === id); return p && html`<span key=${id} className="chip">${p.name}
+            <button type="button" aria-label=${`Remove ${p.name}`} onClick=${() => set('pipelines', f.pipelines.filter((x) => x !== id))}><${Icon} name="x" size=${12} /></button></span>`; })}
+          ${others.length > 0 && html`<select id="al-pipe-add" className="chipselect" value="" aria-label="Add a pipeline"
+            onChange=${(e) => { if (e.target.value) set('pipelines', [...f.pipelines, e.target.value]); }}>
+            <option value="">${f.pipelines.length ? '+ Add pipeline' : 'Select pipelines'}</option>
+            ${others.map((p) => html`<option key=${p.id} value=${p.id}>${p.name}</option>`)}</select>`}
+        </div>
+      </${Field}>
+      <${Field} label="Slack Channel" htmlFor="al-slack">
+        <${Select} id="al-slack" value=${f.slack} onChange=${(v) => set('slack', v)} options=${[{ value: '', label: 'Select' }, ...SLACK_CHANNELS]} invalid=${errors.dest} />
+      </${Field}>
+      <${Field} label="Email" htmlFor="al-email">
+        <${EmailChips} value=${f.emails} onChange=${(v) => set('emails', v)} invalid=${errors.dest} />
+      </${Field}>
+      ${errors.dest && html`<div className="ferr mt-neg"><${Icon} name="alert" size=${12} />${errors.dest}</div>`}
+      <div className="field">
+        <span className="flabel">Alerts</span>
+        <div className="arows">
+          <div className="arow"><span className="atag at-fail">Failed</span><span className="arow-d">A run fails or is stopped</span><${Toggle} id="al-on-failed" label="Alert when a run fails" on=${f.on.failed} onChange=${(v) => setOn('failed', v)} /></div>
+          <div className="arow"><span className="atag at-ok">Successful</span><span className="arow-d">A run finishes without errors</span><${Toggle} id="al-on-success" label="Alert when a run succeeds" on=${f.on.success} onChange=${(v) => setOn('success', v)} /></div>
+          <div className="arow"><span className="atag at-dur">Duration</span><span className="arow-d">A run takes longer than a set time</span><${Toggle} id="al-on-dur" label="Alert when a run takes too long" on=${f.on.duration} onChange=${(v) => setOn('duration', v)} /></div>
+          ${f.on.duration && html`<div className="arow-sub">
+            <span>Alert when a run is still going after</span>
+            <div className="durin"><input id="al-dur-h" type="number" min="0" max="48" className="inp" value=${f.durH} aria-label="Hours"
+              onChange=${(e) => { set('durH', Math.max(0, Math.min(48, Math.round(Number(e.target.value)) || 0))); setErrors((x) => ({ ...x, dur: undefined })); }} /><span>h</span></div>
+            <div className="durin"><input id="al-dur-m" type="number" min="0" max="59" step="5" className="inp" value=${f.durM} aria-label="Minutes"
+              onChange=${(e) => { set('durM', Math.max(0, Math.min(59, Math.round(Number(e.target.value)) || 0))); setErrors((x) => ({ ...x, dur: undefined })); }} /><span>m</span></div>
+          </div>`}
+        </div>
+        ${errors.on && html`<div className="ferr"><${Icon} name="alert" size=${12} />${errors.on}</div>`}
+        ${errors.dur && html`<div className="ferr"><${Icon} name="alert" size=${12} />${errors.dur}</div>`}
+      </div>
+    </div>
+    <div className="dfoot">
+      ${editing
+        ? html`<button className="btn btn-danger-sec" onClick=${onDelete}><${Icon} name="trash" size=${14} />Delete alert</button>
+            <button className="btn btn-pri grow" disabled=${!dirty} title=${dirty ? '' : 'Make a change to save'} onClick=${save}>Save changes</button>`
+        : html`<button className="btn btn-sec" onClick=${onCancel}>Cancel</button>
+            <button className="btn btn-pri grow" onClick=${save}>Set alert</button>`}
+    </div>`;
+}
+
+function AlertsDrawer({ state, setState, pipelines, alerts, onSave, onDelete, onClose, closing }) {
+  const panelRef = useRef(null);
+  useEffect(() => { panelRef.current && panelRef.current.focus(); }, []);
+  const p = pipelines.find((x) => x.id === state.pid);
+  if (!p) return null;
+  const mine = alerts.filter((a) => a.pipelines.includes(p.id));
+  const editing = state.view === 'form' && state.editId ? alerts.find((a) => a.id === state.editId) : null;
+  const toList = () => setState({ ...state, view: 'list', editId: null });
+  let body;
+  if (state.view === 'form') {
+    const initial = editing || { id: null, name: '', pipelines: [p.id], slack: '', emails: [], on: { failed: true, success: false, duration: false }, durH: 1, durM: 0 };
+    body = html`<div className="aview" key=${'form' + (state.editId || 'new')}>
+      <${AlertForm} initial=${initial} pipelines=${pipelines} editing=${!!editing}
+        onCancel=${toList} onSave=${(a) => { onSave(a); toList(); }} onDelete=${() => onDelete(editing)} /></div>`;
+  } else {
+    body = html`<div className="aview" key="list">
+      <div className="dhead">
+        <div className="dtitle"><${Icon} name="bell" size=${16} color="#344054" /><span>Alerts</span><span className="dtag">${p.name}</span></div>
+        <button className="iconbtn" aria-label="Close alerts" onClick=${onClose}><${Icon} name="x" size=${18} /></button>
+      </div>
+      <div className="dbody">
+        <button className="btn btn-pri setalert" onClick=${() => setState({ ...state, view: 'form', editId: null })}><${Icon} name="plus" size=${16} />Set a new alert</button>
+        ${mine.length ? html`<div className="alist">
+            <div className="alist-t">Existing alerts for this pipeline</div>
+            ${mine.map((a) => html`<button key=${a.id} className="acard" onClick=${() => setState({ ...state, view: 'form', editId: a.id })}>
+              <div className="acard-main">
+                <span className="acard-name">${a.name}</span>
+                <span className="acard-dest">${destSummary(a)}${a.pipelines.length > 1 ? html` · <span>${a.pipelines.length} pipelines</span>` : ''}</span>
+                <${AlertTags} a=${a} />
+              </div>
+              <${Icon} name="chevR" size=${18} color="#667085" />
+            </button>`)}
+          </div>`
+          : html`<div className="aempty"><span className="m-icon"><${Icon} name="bell" size=${16} color="#7F56D9" /></span>
+              <div className="el-t">No alerts for this pipeline</div>
+              <div className="el-s">Get a Slack message or email when it fails, succeeds, or runs longer than expected.</div></div>`}
+      </div></div>`;
+  }
+  return html`<div className=${'alayer' + (closing ? ' closing' : '')}>
+    <div className="ascrim" onClick=${onClose} aria-hidden="true"></div>
+    <aside className="apanel" role="dialog" aria-modal="true" aria-label=${state.view === 'form' ? (editing ? 'Edit alert' : 'New alert') : `Alerts for ${p.name}`}
+      tabIndex="-1" ref=${panelRef}>${body}</aside>
+  </div>`;
+}
+
+/* ---------------- AI failure diagnosis ---------------- */
+/* 7x7 dot-matrix loader (after ElevenLabs UI "Matrix", loader preset) */
+function MatrixLoader({ rows = 7, cols = 7, size = 6, gap = 2, fps = 14 }) {
+  const ref = useRef(null);
+  useEffect(() => {
+    const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const cells = ref.current ? Array.from(ref.current.querySelectorAll('circle')) : [];
+    const cx = (cols - 1) / 2, cy = (rows - 1) / 2;
+    const meta = cells.map((_, i) => { const r = Math.floor(i / cols), c = i % cols; const dx = c - cx, dy = r - cy;
+      return { d: Math.hypot(dx, dy), a: Math.atan2(dy, dx) }; });
+    let frame = 0, raf, last = 0;
+    const draw = () => {
+      const head = (frame / 12) * Math.PI * 2;
+      const pulse = (Math.sin(frame / 4) + 1) / 2;
+      cells.forEach((el, i) => { const m = meta[i]; let b = 0.08;
+        if (m.d > 1.9 && m.d < 3.4) { let diff = head - m.a; diff = ((diff % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI); b = Math.max(0.08, 1 - diff / (Math.PI * 1.1)); }
+        else if (m.d < 0.6) b = 0.35 + 0.65 * pulse;
+        else if (m.d < 1.5) b = 0.1 + 0.25 * pulse;
+        el.style.opacity = b.toFixed(2); });
+    };
+    const tick = (t) => { if (t - last >= 1000 / fps) { last = t; frame++; draw(); } raf = requestAnimationFrame(tick); };
+    draw();
+    if (!reduce) raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [rows, cols, fps]);
+  const w = cols * size + (cols - 1) * gap, h = rows * size + (rows - 1) * gap;
+  const dots = [];
+  for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++)
+    dots.push(html`<circle key=${r * cols + c} cx=${c * (size + gap) + size / 2} cy=${r * (size + gap) + size / 2} r=${size / 2} fill="var(--brand)" style=${{ opacity: 0.08 }} />`);
+  return html`<svg ref=${ref} className="matrix" width=${w} height=${h} viewBox=${`0 0 ${w} ${h}`} role="img" aria-label="Diagnosing">${dots}</svg>`;
+}
+
+/* gradient sweep through the glyphs (after ElevenLabs UI "Shimmering Text") */
+function ShimmerText({ text }) {
+  return html`<span className="shimmer-wrap"><span key=${text} className="shimmer">${text}</span></span>`;
+}
+
+/* builds a diagnosis from the run, its history and the pipeline */
+function buildDiagnosis(p, run) {
+  const failedTask = run.tasks.find((t) => t.status === 'failed') || run.tasks[run.tasks.length - 1];
+  const skipped = run.tasks.filter((t) => t.status === 'aborted');
+  const done = p.runs.filter((r) => r.status !== 'running');
+  const idx = done.findIndex((r) => r.id === run.id);
+  const streak = []; for (let i = idx; i < done.length && done[i].status === 'failed'; i++) streak.push(done[i]);
+  const lastGood = done.slice(idx).find((r) => r.status === 'success');
+  const recovered = idx > 0 && done[idx - 1].status === 'success';
+  const shortId = (r) => r.id.split('-')[1];
+  const err = run.error || '';
+  const steps = [
+    'Diagnosing with AI…',
+    `Checking ${Math.min(done.length, 12)} recent runs…`,
+    `Reading the error log for ${failedTask.name}…`,
+    lastGood ? `Comparing with the last successful run (${shortId(lastGood)})…` : 'Looking for a successful run to compare with…',
+    'Checking upstream tasks and schema changes…',
+    'Writing up what happened…',
+  ];
+  const streakLine = streak.length > 1
+    ? `Same error in the last ${streak.length} runs (${streak.map(shortId).join(', ')}). It’s consistent, not intermittent.`
+    : recovered ? 'An isolated failure. The runs just before and after it passed.' : 'The run before this one passed, so the problem started with this run.';
+  const skippedLine = skipped.length ? `${skipped.map((t) => t.name).join(', ')} ${skipped.length > 1 ? 'were' : 'was'} skipped because ${skipped.length > 1 ? 'they depend' : 'it depends'} on ${failedTask.name}.` : null;
+
+  if (/account_tier/.test(err)) {
+    const acct = run.tasks.find((t) => /accounts/.test(t.name));
+    return { steps, task: failedTask, kind: 'code',
+      verdict: 'Needs a code change', verdictSub: 'Retrying won’t help',
+      reason: [`${failedTask.name} fails because the model fct_opportunities still selects account_tier, a column that no longer exists in the Salesforce accounts data.`,
+        `The column was dropped at the source about ${Math.max(1, Math.round((Date.now() - streak[streak.length - 1].start) / 86400000))} days ago, and every run since has stopped at this step.`],
+      evidence: [streakLine,
+        `${acct ? acct.name : 'The accounts ingestion'} succeeded in each failed run but loaded 41 columns instead of 42. account_tier is the one missing.`,
+        lastGood ? `The last successful run (${shortId(lastGood)}, ${fmtDate(lastGood.start)}) still had account_tier.` : null,
+        skippedLine].filter(Boolean),
+      log: ['02:31:52  ERROR Database Error in model fct_opportunities (models/marts/sales/fct_opportunities.sql)', '02:31:52  ERROR   column "account_tier" does not exist'],
+      next: [
+        { title: 'Update fct_opportunities', body: 'Remove account_tier from models/marts/sales/fct_opportunities.sql, or replace it with the new account segment field if one was added.', action: 'open', label: `Open ${failedTask.name}` },
+        { title: 'Run from failed once the fix is merged', body: 'The ingestion steps already succeeded, so only sales_marts and notify_sales_ops need to run again.', action: 'rerun', label: 'Run from failed' },
+        { title: 'Ask the Salesforce admin about the change', body: 'Confirm whether account_tier was removed on purpose so the model can be updated correctly.', action: 'copy', label: 'Copy summary' },
+      ] };
+  }
+  if (failedTask.type === 'ingestion') {
+    return { steps, task: failedTask, kind: 'transient',
+      verdict: 'Likely temporary', verdictSub: 'Safe to retry',
+      reason: [`${failedTask.name} timed out waiting for the source to respond, so no data was loaded in this run.`,
+        recovered ? 'The connector settings are unchanged and the next run succeeded, which points to a short outage on the source side.' : 'The connector settings are unchanged since the last successful run, which points to a short outage on the source side.'],
+      evidence: [streakLine, 'Timeout hit after 300s while the source was still accepting connections.', lastGood ? `The last successful run (${shortId(lastGood)}) used the same connector settings.` : null, skippedLine].filter(Boolean),
+      log: [`ERROR ${err}`],
+      next: [
+        { title: 'Retry the failed step', body: 'A rerun is likely to succeed. Nothing in the pipeline needs to change.', action: 'rerun', label: 'Run from failed' },
+        { title: 'Raise the time out if it happens again', body: 'If this repeats at the same time of day, increase the ingestion time out or move the schedule.', action: 'open', label: `Open ${failedTask.name}` },
+      ] };
+  }
+  const isPy = failedTask.type === 'python';
+  return { steps, task: failedTask, kind: 'code',
+    verdict: 'Needs a code change', verdictSub: 'Retrying won’t help',
+    reason: isPy
+      ? [`${failedTask.name} crashed because the script expected a "rate" field that wasn’t in the response it received.`, run.tasks.some((t) => t.status === 'success') ? 'Upstream data loaded normally, so the problem is in the script rather than the source.' : 'The API responded, but in a different shape than the script expects.']
+      : [`${failedTask.name} failed to compile because a model refers to raw_orders, which isn’t defined in the project.`, 'The model was likely renamed or removed in a recent commit.'],
+    evidence: [streakLine, isPy ? 'The script exited with code 1 on a KeyError.' : 'dbt stopped at compilation, before any model ran.', lastGood ? `The last successful run was ${shortId(lastGood)}, ${fmtDate(lastGood.start)}.` : null, skippedLine].filter(Boolean),
+    log: [`ERROR ${err}`],
+    next: [
+      { title: isPy ? 'Handle the missing field in the script' : 'Fix the reference to raw_orders', body: isPy ? 'Check that the field exists before reading it, or update the script to the new response format.' : 'Point the model at the renamed source, or restore raw_orders.', action: 'open', label: `Open ${failedTask.name}` },
+      { title: 'Run from failed after the fix', body: 'Earlier steps already succeeded, so only the failed step and what depends on it need to run.', action: 'rerun', label: 'Run from failed' },
+    ] };
+}
+
+function resolvedLater(p, run) {
+  const done = p.runs.filter((r) => r.status !== 'running');
+  const idx = done.findIndex((r) => r.id === run.id);
+  return idx > 0 ? done.slice(0, idx).reverse().find((r) => r.status === 'success') : null;
+}
+function diagnose(p, run) {
+  const dx = buildDiagnosis(p, run);
+  const fixed = resolvedLater(p, run);
+  if (!fixed) return dx;
+  const id = fixed.id.split('-')[1];
+  return { ...dx, verdictSub: `Resolved in run ${id}`,
+    evidence: [...dx.evidence, `Run ${id} (${fmtDate(fixed.start)}) succeeded, so this is already resolved.`],
+    next: dx.next.filter((n) => n.action !== 'rerun') };
+}
+function DiagnosisPanel({ p, run, onClose, onOpenTask, onRerun, toast, canRerun }) {
+  const dx = useMemo(() => diagnose(p, run), [p.id, run.id]);
+  const [step, setStep] = useState(0);
+  const [done, setDone] = useState(false);
+  const [fb, setFb] = useState(null);
+  useEffect(() => {
+    let i = 0;
+    const t = setInterval(() => { i++; if (i < dx.steps.length) setStep(i); else { clearInterval(t); setDone(true); } }, 950);
+    return () => clearInterval(t);
+  }, [dx]);
+  const copy = () => {
+    const text = `${p.name}: run ${run.id} failed at ${dx.task.name}.\n${dx.reason.join(' ')}\nNext: ${dx.next.map((n) => n.title).join('; ')}.`;
+    try { navigator.clipboard.writeText(text).then(() => toast('Summary copied'), () => toast('Couldn’t copy. Select the text instead.', 'info')); } catch (_) { toast('Couldn’t copy. Select the text instead.', 'info'); }
+  };
+  const act = (n) => (n.action === 'open' ? onOpenTask(dx.task.id) : n.action === 'rerun' ? onRerun() : copy());
+
+  return html`<aside className="drawer ddrawer" aria-label="AI diagnosis">
+    <div className="dhead">
+      <div className="dtitle"><span className="aibadge"><${Icon} name="sparkles" size=${14} /></span><span>Diagnose with AI</span></div>
+      <button className="iconbtn" aria-label="Close diagnosis" onClick=${onClose}><${Icon} name="x" size=${18} /></button>
+    </div>
+    <div className="dbody dx">
+      <div className="dx-ctx">
+        <${TypeIcon} type=${dx.task.type} size=${22} />
+        <div><b>${dx.task.name}</b><span>Run <span className="mono">${run.id}</span> · ${fmtDate(run.start)}</span></div>
+        <span className="rstat rs-fail"><span className="dot"></span>Failed</span>
+      </div>
+
+      ${!done ? html`<div className="dx-think" aria-live="polite">
+          <${MatrixLoader} size=${2.6} gap=${1} />
+          <${ShimmerText} text=${dx.steps[step]} />
+        </div>`
+      : html`<div className="dx-result">
+          <div className=${'dx-verdict ' + (dx.kind === 'transient' ? 'v-ok' : 'v-fix')}>
+            <${Icon} name=${dx.kind === 'transient' ? 'reset' : 'pencil'} size=${14} /><b>${dx.verdict}</b><span>${dx.verdictSub}</span>
+          </div>
+          <section className="dx-sec" style=${{ animationDelay: '0ms' }}>
+            <h3>What happened</h3>
+            <p className="dx-reason">${dx.reason.join(' ')}</p>
+          </section>
+          <section className="dx-sec" style=${{ animationDelay: '120ms' }}>
+            <h3>How we got there</h3>
+            <ul className="dx-evidence">${dx.evidence.map((e) => html`<li key=${e}>${e}</li>`)}</ul>
+            <pre className="dx-log">${dx.log.map((l) => html`<span key=${l}>${l}</span>`)}</pre>
+          </section>
+          <section className="dx-sec" style=${{ animationDelay: '240ms' }}>
+            <h3>Next best steps</h3>
+            <ol className="dx-next">${dx.next.map((n, i) => html`<li key=${n.title}>
+              <span className="dx-num">${i + 1}</span>
+              <div><b>${n.title}</b><p>${n.body}</p>
+                <button className=${'btn ' + (i === 0 ? 'btn-pri' : 'btn-sec') + ' btn-sm'} disabled=${n.action === 'rerun' && !canRerun}
+                  onClick=${() => act(n)}><${Icon} name=${n.action === 'open' ? 'job' : n.action === 'rerun' ? 'reset' : 'copy'} size=${13} />${n.label}</button></div>
+            </li>`)}</ol>
+          </section>
+          <div className="dx-foot">
+            <span>AI-generated from this pipeline’s logs and run history. Check the evidence before changing code.</span>
+            <div className="dx-fb">${fb ? html`<span className="dx-thanks">Thanks for the feedback</span>`
+              : html`<button className="linkbtn" onClick=${() => setFb('up')}>Helpful</button><button className="linkbtn" onClick=${() => setFb('down')}>Not quite</button>`}</div>
+          </div>
+        </div>`}
+    </div>
+  </aside>`;
+}
+
+/* ---------------- app ---------------- */
+let SEQ = 0;
+function App() {
+  const rf = useReactFlow();
+  const [view, setView] = useState('list'); // list | pipeline
+  const [tab, setTab] = useState('runs'); // runs | editor
+  const [modal, setModal] = useState(null); // {kind:'new'} | {kind:'rename', id}
+  const [pipelines, setPipelines] = useState(seedPipelines);
+  const [alerts, setAlerts] = useState(SEED_ALERTS);
+  const [alertsFor, setAlertsFor] = useState(null); // { pid, view: 'list'|'form', editId }
+  const [alertsClosing, setAlertsClosing] = useState(false);
+  const [diag, setDiag] = useState(null); // { runId }
+  const closeAlerts = () => { if (alertsClosing) return; setAlertsClosing(true); setTimeout(() => { setAlertsFor(null); setAlertsClosing(false); }, 240); };
+  const alertCount = (pid) => alerts.filter((a) => a.pipelines.includes(pid)).length;
+  const openAlerts = (pid) => { setDrawer(null); setMenu(null); setAlertsClosing(false); setAlertsFor({ pid, view: 'list', editId: null }); };
+  function saveAlert(a) {
+    const isNew = !a.id;
+    const rec = isNew ? { ...a, id: 'a' + Date.now() } : a;
+    setAlerts((xs) => (isNew ? [...xs, rec] : xs.map((x) => (x.id === rec.id ? rec : x))));
+    const when = [rec.on.failed && 'fails', rec.on.success && 'succeeds', rec.on.duration && `runs longer than ${fmtThreshold(rec)}`].filter(Boolean).join(', ');
+    toast(isNew ? `Alert set. ${rec.slack || rec.emails[0]} hears about it when a run ${when}.` : `Saved changes to ${rec.name}`);
+  }
+  function removeAlert(a) {
+    const before = alerts;
+    setAlerts((xs) => xs.filter((x) => x.id !== a.id)); setConfirm(null);
+    setAlertsFor((s) => (s ? { ...s, view: 'list', editId: null } : s));
+    toast(`${a.name} deleted`, 'success', { label: 'Undo', fn: () => { setAlerts(before); toast(`${a.name} restored`); } });
+  }
+  const [currentId, setCurrentId] = useState(null);
+  const [pipe, setPipeState] = useState({ name: '', env: 'prod', compute: 'xs', ...DEFAULT_SETTINGS });
+  const [nodes, setNodes] = useState([]);
+  const [rfNodes, setRfNodes] = useState([]);
+  const [pub, setPub] = useState('draft'); // draft | published | changed
+  const [paused, setPaused] = useState(false);
+  const [edited, setEdited] = useState(0);
+  const [drawer, setDrawer] = useState(null);
+  const [confirm, setConfirm] = useState(null);
+  const [toasts, setToasts] = useState([]);
+  const [run, setRun] = useState(null);
+  const [lastRun, setLastRun] = useState(null);
+  const [settingsOpen, setSettingsOpen] = useState(true);
+  const [menu, setMenu] = useState(null);
+  const [renaming, setRenaming] = useState(false);
+  const [hint, setHint] = useState(true);
+  const [narrow, setNarrow] = useState(() => window.innerWidth < 760);
+  const [forceDesktop, setForceDesktop] = useState(() => { try { return new URLSearchParams(location.search).has('full'); } catch (_) { return false; } });
+  const posRef = useRef({});
+  const runRef = useRef(null);
+  const dragRef = useRef(0);
+  const nodesRef = useRef(nodes); nodesRef.current = nodes;
+
+  useEffect(() => { const r = () => setNarrow(window.innerWidth < 760); window.addEventListener('resize', r); return () => window.removeEventListener('resize', r); }, []);
+  useEffect(() => { if (!menu) return; const c = () => setMenu(null); setTimeout(() => window.addEventListener('click', c), 0); return () => window.removeEventListener('click', c); }, [menu]);
+
+  const toast = useCallback((msg, tone = 'success', action) => {
+    const id = Math.random();
+    setToasts((t) => [...t.slice(-2), { id, msg, tone, action }]);
+    setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), action ? 6000 : 3600);
+  }, []);
+  const notInProto = (what) => toast(`${typeof what === 'string' ? what + ' isn’t' : 'This isn’t'} part of this prototype. Pipelines are.`, 'info');
+  const markDirty = () => { setPub((p) => (p === 'published' ? 'changed' : p)); setEdited(Date.now()); };
+  const setPipe = (patch) => { setPipeState((p) => ({ ...p, ...patch })); markDirty(); };
+  const fit = (d = 350, delay = 80) => setTimeout(() => rf.fitView({ padding: 0.35, maxZoom: 1, duration: d }), delay);
+  const patchPipeline = (id, fn) => setPipelines((ps) => ps.map((p) => (p.id === id ? { ...p, ...fn(p) } : p)));
+  const pipesRef = useRef(pipelines); pipesRef.current = pipelines;
+  const addRun = (pid, opts) => { const p = pipesRef.current.find((x) => x.id === pid); const r = newRun(p, opts); patchPipeline(pid, (x) => ({ runs: [r, ...x.runs] })); return r.id; };
+  const finishRun = (pid, rid, status, results, error = null) => patchPipeline(pid, (x) => ({ runs: x.runs.map((r) => {
+    if (r.id !== rid) return r;
+    const tasks = r.tasks.map((t) => (results[t.id] ? { ...t, ...results[t.id] } : { ...t, status: 'aborted', dur: 0 }));
+    const dur = Math.max(5, Math.round(tasks.reduce((a, t) => a + t.dur, 0) * 0.75));
+    return { ...r, status, tasks, dur, cus: cusFor(x.compute, dur), error };
+  }) }));
+
+  // keep the open pipeline's record in sync with the editor
+  useEffect(() => {
+    if (view !== 'pipeline' || !currentId) return;
+    const { name, env, compute, ...settings } = pipe;
+    patchPipeline(currentId, (p) => ({ name, env, compute, settings, nodes, pub, paused, updated: edited || p.updated }));
+  }, [pipe, nodes, pub, paused, edited, view, currentId]);
+
+  const trigger = nodes.find((n) => TYPES[n.type].kind === 'trigger');
+  const tasks = nodes.filter((n) => TYPES[n.type].kind === 'task');
+
+  // model -> React Flow nodes (keeps measured sizes + dragged positions)
+  useEffect(() => {
+    setRfNodes((prev) => {
+      if (!nodes.length) return [{ id: '__ph', type: 'placeholder', position: { x: 0, y: 0 }, data: {}, draggable: false, selectable: false }];
+      return nodes.map((n) => {
+        const p = prev.find((x) => x.id === n.id);
+        const kind = TYPES[n.type].kind;
+        return { ...(p || {}), id: n.id, type: kind, position: p ? p.position : posRef.current[n.id] || { x: 0, y: 0 }, selectable: false,
+          data: { ...n, isLeaf: !nodes.some((c) => c.parent === n.id), editing: drawer && drawer.editId === n.id,
+            canDelete: kind === 'task' || nodes.length === 1, pulse: kind === 'trigger' && nodes.length === 1 && !drawer } };
+      });
+    });
+  }, [nodes, drawer]);
+
+  const edges = useMemo(() => nodes.filter((n) => n.parent).map((n) => ({
+    id: `e-${n.parent}-${n.id}`, source: n.parent, target: n.id, type: 'default', animated: n.status === 'running',
+    markerEnd: { type: MarkerType.ArrowClosed, color: '#98A2B3', width: 14, height: 14 },
+    style: { stroke: '#98A2B3', strokeWidth: 1.5 },
+  })), [nodes]);
+
+  const onNodesChange = useCallback((ch) => setRfNodes((ns) => applyNodeChanges(ch.filter((c) => c.type !== 'remove' && c.type !== 'select'), ns)), []);
+
+  function placeFor(parentId) {
+    const all = rf.getNodes();
+    const p = all.find((x) => x.id === parentId);
+    const parentModel = nodesRef.current.find((x) => x.id === parentId);
+    const base = p ? p.position : { x: 0, y: 0 };
+    const pw = (p && p.width) || 200;
+    const yAdj = parentModel && TYPES[parentModel.type].kind === 'trigger' ? -6 : 0;
+    let pos = { x: base.x + pw + 110, y: base.y + yAdj };
+    const hit = () => all.some((n) => n.id !== '__ph' && Math.abs(n.position.x - pos.x) < 180 && Math.abs(n.position.y - pos.y) < 90);
+    let guard = 0; while (hit() && guard++ < 30) pos = { ...pos, y: pos.y + 112 };
+    return pos;
+  }
+
+  const busy = () => { if (run) { toast('Wait for the run to finish, or stop it, first.', 'info'); return true; } return false; };
+
+  const actions = useMemo(() => ({
+    addAfter: (id) => { if (busy()) return; setDiag(null); setDrawer({ view: 'list', list: 'tasks', parentId: id }); },
+    edit: (id) => { const n = nodesRef.current.find((x) => x.id === id); setDiag(null); setDrawer({ view: 'config', type: n.type, editId: id, tab: 'params' }); },
+    logs: (id) => { const n = nodesRef.current.find((x) => x.id === id); setDrawer({ view: 'config', type: n.type, editId: id, tab: 'logs' }); },
+    del: (id) => { if (busy()) return; setConfirm({ kind: 'delete', id }); },
+    test: (id) => testStep(id),
+    diagnose: () => diagnoseLatest(),
+  }), [run, currentId, pipelines]);
+
+  function saveNode({ type, name, parent, cfg, editId }) {
+    if (editId) {
+      setNodes((ns) => ns.map((n) => (n.id === editId ? { ...n, name, parent, cfg } : n)));
+      toast(`Saved changes to ${name}`);
+    } else {
+      const id = 'n' + ++SEQ;
+      posRef.current[id] = TYPES[type].kind === 'trigger' ? { x: 0, y: 0 } : placeFor(parent);
+      setNodes((ns) => [...ns, { id, type, name, parent, cfg, status: null, duration: '', logs: [], ran: false }]);
+      toast(TYPES[type].kind === 'trigger' ? `${name} added. Now add your first task.` : `${name} added`);
+      fit();
+    }
+    markDirty();
+    setDrawer(null);
+  }
+
+  function doDelete(id) {
+    const snapshot = nodesRef.current;
+    const target = snapshot.find((n) => n.id === id);
+    const node = rf.getNode(id); if (node) posRef.current[id] = node.position;
+    setNodes((ns) => ns.filter((n) => n.id !== id).map((n) => (n.parent === id ? { ...n, parent: target.parent } : n)));
+    if (drawer && drawer.editId === id) setDrawer(null);
+    markDirty();
+    toast(`${target.name} deleted`, 'success', { label: 'Undo', fn: () => { setNodes(snapshot); toast(`${target.name} restored`); } });
+  }
+
+  function logLines(n, ok = true) {
+    const ts = () => new Date().toISOString().slice(11, 19);
+    const c = n.cfg || {};
+    const rows = Math.floor(4000 + Math.random() * 40000).toLocaleString('en-US');
+    const body = {
+      ingestion: [`Starting ingestion from ${c.connector}`, `Discovered 1 stream, sync mode: incremental (cursor: updated_at)`, `Extracted ${rows} records`, `Loaded ${rows} rows into warehouse.raw`],
+      modeling: [`Cloning ${c.repo} @ main`, ...((c.commands || []).length ? c.commands.flatMap((cmd) => [`Running: ${cmd}`, `${cmd.split(' ')[1] || 'dbt'} completed. PASS=${40 + Math.floor(Math.random() * 80)} WARN=0 ERROR=0`]) : ['No dbt commands set. Nothing to run.'])],
+      python: [`Cloning ${c.repo} @ main`, `Installing requirements.txt (14 packages)`, `python ${c.file}`, `Process exited with code 0`],
+      job: [`Starting pipeline ${c.job}`, `Waiting for ${c.job} to finish`, `${c.job} finished: 3 tasks succeeded`],
+    }[n.type];
+    return [...body.map((l) => `${ts()}  INFO  ${l}`), `${ts()}  INFO  ${ok ? 'Task finished in ' + n.duration : 'Run stopped by user'}`];
+  }
+
+  async function testStep(id) {
+    if (run) return toast('A run is in progress. Test this step once it finishes.', 'info');
+    const n0 = nodesRef.current.find((x) => x.id === id);
+    const pid = currentId;
+    const rid = addRun(pid, { scope: 'node', target: n0.name, tasks: [n0] });
+    setNodes((ns) => ns.map((n) => (n.id === id ? { ...n, status: 'running', ran: true } : n)));
+    await sleep(1400);
+    const secs = randDur(n0.type); const duration = fmtDur(secs);
+    setNodes((ns) => ns.map((n) => (n.id === id ? { ...n, status: 'success', duration, logs: logLines({ ...n, duration }) } : n)));
+    finishRun(pid, rid, 'success', { [id]: { status: 'success', dur: secs } });
+    toast(`Test passed for ${n0.name} · ${duration}`);
+  }
+
+  function levels(onlyIds) {
+    const out = []; let frontier = nodesRef.current.filter((n) => n.parent === trigger.id);
+    while (frontier.length) { out.push(frontier.filter((n) => !onlyIds || onlyIds.has(n.id)).map((n) => n.id));
+      const ids = new Set(frontier.map((n) => n.id)); frontier = nodesRef.current.filter((n) => ids.has(n.parent)); }
+    return out.filter((l) => l.length);
+  }
+
+  async function runPipeline(fromFailed) {
+    if (run) return;
+    if (!trigger) return toast('Add a trigger before running this pipeline.', 'error');
+    if (!tasks.length) return toast('Add at least one task before running this pipeline.', 'error');
+    let only = null;
+    if (fromFailed) {
+      if (!lastRun) return toast('This pipeline hasn’t run yet. Use Run now instead.', 'info');
+      if (lastRun.ok) return toast('The last run succeeded. Nothing to resume.', 'info');
+      only = new Set(nodesRef.current.filter((n) => TYPES[n.type].kind === 'task' && n.status !== 'success').map((n) => n.id));
+    }
+    const pid = currentId;
+    const token = { stop: false }; runRef.current = token;
+    const runTasks = nodesRef.current.filter((n) => TYPES[n.type].kind === 'task' && (!only || only.has(n.id)));
+    const rid = addRun(pid, { scope: only ? 'partial' : 'full', tasks: runTasks });
+    const results = {};
+    setRun({ started: Date.now(), id: rid });
+    setNodes((ns) => ns.map((n) => (TYPES[n.type].kind === 'task' && (!only || only.has(n.id)) ? { ...n, status: null, ran: true } : n)));
+    let total = 0;
+    for (const lvl of levels(only)) {
+      if (token.stop) break;
+      setNodes((ns) => ns.map((n) => (lvl.includes(n.id) ? { ...n, status: 'running' } : n)));
+      await sleep(1300 + Math.random() * 900);
+      if (token.stop) break;
+      let mx = 0;
+      lvl.forEach((id) => { const n = nodesRef.current.find((x) => x.id === id); const sec = randDur(n.type); results[id] = { status: 'success', dur: sec }; mx = Math.max(mx, sec); });
+      setNodes((ns) => ns.map((n) => { if (!lvl.includes(n.id)) return n;
+        const duration = fmtDur(results[n.id].dur); return { ...n, status: 'success', duration, logs: logLines({ ...n, duration }) }; }));
+      total += mx;
+    }
+    if (token.stop) {
+      setNodes((ns) => ns.map((n) => (n.status === 'running' ? { ...n, status: 'aborted', logs: logLines(n, false) } : n)));
+      setLastRun({ ok: false }); setRun(null); finishRun(pid, rid, 'aborted', results, 'Run stopped by a user before all tasks finished.');
+      return toast('Run stopped. Use Run from failed to resume where it left off.', 'info');
+    }
+    setLastRun({ ok: true }); setRun(null); finishRun(pid, rid, 'success', results);
+    toast(`“${pipe.name}” ran successfully · ${fmtDur(total)}`);
+  }
+
+  useEffect(() => {
+    const k = (e) => { if (e.key !== 'Escape' || confirm || modal) return; if (diag && !alertsFor) { setDiag(null); return; } if (alertsFor) { if (alertsFor.view === 'form') setAlertsFor({ ...alertsFor, view: 'list', editId: null }); else closeAlerts(); } else if (drawer && view === 'pipeline') setDrawer(null); };
+    window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k);
+  }, [drawer, confirm, view, alertsFor, modal, diag]);
+
+  function publish() {
+    if (pub === 'published' || (pub === 'draft' && !edited)) return toast(pub === 'published' ? 'Everything is published. Make a change to publish again.' : 'No changes to publish yet. Edit the pipeline first.', 'info');
+    if (!trigger) return toast('Add a trigger before publishing.', 'error');
+    if (pipe.timeoutOn && !pipe.timeoutUnit) { setSettingsOpen(true); setDrawer(null); return toast('Choose a unit for the time out, or remove it.', 'error'); }
+    if (!tasks.length) return toast('Add at least one task before publishing.', 'error');
+    setConfirm({ kind: 'publish' });
+  }
+  async function doPublish() {
+    setConfirm(null); setPub('publishing');
+    await sleep(900);
+    setPub('published'); setEdited(Date.now()); setNodes((ns) => ns.map((n) => ({ ...n, published: true })));
+    const nr = nextRunLabel(trigger);
+    toast(`Published to ${ENVS.find((e) => e.id === pipe.env).label}${paused ? ' · still paused' : nr.muted ? '' : ` · next run ${nr.text}`}`);
+  }
+
+  /* ---- list <-> editor ---- */
+  function openPipeline(id) {
+    const p = pipelines.find((x) => x.id === id);
+    posRef.current = layoutGraph(p.nodes);
+    setRfNodes([]); setDrawer(null); setRun(null); setMenu(null); setRenaming(false); setConfirm(null); setAlertsFor(null); setDiag(null);
+    setCurrentId(id);
+    setPipeState({ name: p.name, env: p.env, compute: p.compute, ...p.settings });
+    setNodes(p.nodes.map((n) => ({ ...n })));
+    setPub(p.pub); setPaused(p.paused); setEdited(0);
+    const ld = lastDone(p);
+    setLastRun(ld ? { ok: ld.status === 'success' } : null);
+    setSettingsOpen(true);
+    setView('pipeline'); setTab('runs');
+  }
+  function goList() {
+    if (busy()) return;
+    setDrawer(null); setMenu(null); setAlertsFor(null); setDiag(null); setView('list');
+  }
+  function createPipeline(name) {
+    const id = 'p' + Date.now();
+    const rec = { id, name, env: 'prod', compute: 'xs', alerts: 0, pub: 'draft', paused: false, created: Date.now(), updated: Date.now(),
+      runs: [], settings: { ...DEFAULT_SETTINGS }, nodes: [] };
+    setPipelines((ps) => [rec, ...ps]);
+    setModal(null);
+    posRef.current = {}; setRfNodes([]); setDrawer(null); setRun(null); setConfirm(null);
+    setCurrentId(id); setPipeState({ name, env: 'prod', compute: 'xs', ...DEFAULT_SETTINGS });
+    setNodes([]); setPub('draft'); setPaused(false); setEdited(0); setLastRun(null); setSettingsOpen(true);
+    setView('pipeline'); setTab('editor');
+    fit(0, 120);
+  }
+  async function listRun(id) {
+    const p = pipelines.find((x) => x.id === id);
+    if (isRunning(p)) return;
+    const taskNodes = p.nodes.filter((n) => TYPES[n.type].kind === 'task');
+    if (!taskNodes.length) return toast(`Add a task to ${p.name} before running it.`, 'error');
+    const rid = addRun(id, { tasks: taskNodes });
+    toast(`Started a run of ${p.name}`, 'info');
+    await sleep(2600 + Math.random() * 1200);
+    const results = {}; taskNodes.forEach((n) => { results[n.id] = { status: 'success', dur: randDur(n.type) }; });
+    finishRun(id, rid, 'success', results);
+    patchPipeline(id, (x) => ({ nodes: x.nodes.map((n) => (results[n.id] ? { ...n, status: 'success', ran: true, duration: fmtDur(results[n.id].dur) } : n)) }));
+    toast(`${p.name} ran successfully`);
+  }
+  function togglePause(id) {
+    const p = pipelines.find((x) => x.id === id);
+    if (p.pub === 'draft') return toast('Publish this pipeline before pausing it.', 'info');
+    patchPipeline(id, (x) => ({ paused: !x.paused, updated: Date.now() }));
+    toast(p.paused ? `${p.name} resumed. Its schedule is back on.` : `${p.name} paused. Scheduled runs are on hold.`);
+  }
+  function renamePipeline(id, name) {
+    const old = pipelines.find((x) => x.id === id).name;
+    patchPipeline(id, () => ({ name, updated: Date.now() }));
+    if (id === currentId) setPipeState((s) => ({ ...s, name }));
+    setModal(null);
+    if (old !== name) toast(`Renamed to ${name}`);
+  }
+  function deletePipeline(id) {
+    const idx = pipelines.findIndex((x) => x.id === id);
+    const rec = pipelines[idx];
+    setPipelines((ps) => ps.filter((x) => x.id !== id));
+    setConfirm(null);
+    if (view === 'pipeline') { setView('list'); setDrawer(null); }
+    toast(`${rec.name} deleted`, 'success', { label: 'Undo', fn: () => {
+      setPipelines((ps) => { const a = [...ps]; a.splice(Math.min(idx, a.length), 0, rec); return a; }); toast(`${rec.name} restored`); } });
+  }
+  const openNew = () => { setHint(false); setModal({ kind: 'new' }); };
+  function openDiag(runId) { setDrawer(null); setMenu(null); setDiag({ runId }); }
+  function diagnoseLatest() { const p = pipesRef.current.find((x) => x.id === currentId); const r = p && p.runs.find((x) => x.status === 'failed'); if (r) openDiag(r.id); }
+  function diagOpenTask(nodeId) {
+    setDiag(null); if (tab !== 'editor') { setTab('editor'); fit(0, 120); }
+    const n = nodesRef.current.find((x) => x.id === nodeId);
+    if (n) setTimeout(() => setDrawer({ view: 'config', type: n.type, editId: n.id, tab: 'logs' }), 60);
+  }
+
+  const onNodeClick = (_, n) => {
+    if (Date.now() - dragRef.current < 250) return;
+    if (n.id === '__ph') return setDrawer({ view: 'list', list: 'triggers' });
+    actions.edit(n.id);
+  };
+  const fab = () => { if (busy()) return;
+    if (!trigger) return setDrawer({ view: 'list', list: 'triggers' });
+    const leaves = nodes.filter((n) => !nodes.some((c) => c.parent === n.id));
+    setDrawer({ view: 'list', list: 'tasks', parentId: leaves[leaves.length - 1].id }); };
+
+  const curRec = pipelines.find((p) => p.id === currentId);
+  const hasChanges = pub === 'changed' || (pub === 'draft' && edited > 0);
+  const diagRun = diag && curRec ? curRec.runs.find((r) => r.id === diag.runId) : null;
+  const failedNode = curRec && lastDone(curRec)?.status === 'failed' ? nodes.find((n) => n.status === 'failed') : null;
+  function switchTab(t) { if (t === tab) return; setMenu(null); setTab(t); if (t === 'editor') fit(0, 120); else setDrawer(null); }
+  const headBadge = pub === 'draft' || pub === 'publishing' ? ['Unpublished', 'b-draft'] : paused ? ['Paused', 'b-paused'] : pub === 'changed' ? ['Unpublished changes', 'b-changed'] : ['Active', 'b-live'];
+  const env = ENVS.find((e) => e.id === pipe.env);
+  const nr = paused ? { text: 'Paused', muted: true } : nextRunLabel(trigger);
+  const pubBadge = { draft: ['Draft', 'b-draft'], publishing: ['Draft', 'b-draft'], published: ['Published', 'b-live'], changed: ['Unpublished changes', 'b-changed'] }[pub];
+  const delTarget = confirm && confirm.kind === 'delete' ? nodes.find((n) => n.id === confirm.id) : null;
+  const delKids = delTarget ? nodes.filter((n) => n.parent === delTarget.id) : [];
+  const delParent = delTarget ? nodes.find((n) => n.id === delTarget.parent) : null;
+  const delPipe = confirm && confirm.kind === 'deletePipeline' ? pipelines.find((p) => p.id === confirm.id) : null;
+  const renameRec = modal && modal.kind === 'rename' ? pipelines.find((p) => p.id === modal.id) : null;
+  const curAlerts = currentId ? alertCount(currentId) : 0;
+
+  return html`<${Ctx.Provider} value=${actions}><div className="app">
+    <nav className="sidebar" aria-label="Main">
+      <div className="logo" aria-label="Home"><svg width="28" height="28" viewBox="0 0 100 100" fill="none" aria-hidden="true"><path d="M23.744 88V21.962L12.084 32.562L5.724 26.414L23.744 10.09H35.616V88H23.744ZM45.474 88V84.078C45.474 80.1913 46.0747 76.34 47.276 72.524C48.4773 68.708 50.032 65.104 51.94 61.712L59.148 48.992L51.94 36.378C50.032 32.986 48.4773 29.382 47.276 25.566C46.0747 21.75 45.474 17.8987 45.474 14.012V10.09H57.24V14.012C57.24 17.0507 57.6993 20.054 58.618 23.022C59.5367 25.9193 60.738 28.7107 62.222 31.396L65.72 37.438L69.218 31.396C70.702 28.7107 71.9033 25.9193 72.822 23.022C73.7407 20.054 74.2 17.0507 74.2 14.012V10.09H85.966V14.012C85.966 17.8987 85.3653 21.75 84.164 25.566C82.9627 29.382 81.408 32.986 79.5 36.378L72.292 49.098L79.5 61.712C81.408 65.104 82.9627 68.708 84.164 72.524C85.3653 76.34 85.966 80.1913 85.966 84.078V88H74.2V84.078C74.2 81.0393 73.7407 78.0713 72.822 75.174C71.9033 72.206 70.702 69.3793 69.218 66.694L65.72 60.652L62.222 66.694C60.738 69.3793 59.5367 72.206 58.618 75.174C57.6993 78.0713 57.24 81.0393 57.24 84.078V88H45.474Z" fill="white"/></svg></div>
+      <button className="avatar" onClick=${() => notInProto('Workspace switching')} aria-label="Workspace">NG</button>
+      <div className="navsep"></div>
+      ${[['terminal', 'Workspace'], ['plug', 'Connectors'], ['job', 'Pipelines', true], ['chart', 'Usage']].map(([i, l, on]) => html`<button key=${l} className=${'navbtn' + (on ? ' on' : '')} aria-label=${l} title=${l} onClick=${on ? goList : () => notInProto(l)}><${Icon} name=${i} size=${17} /></button>`)}
+      <div className="navsep"></div>
+      <button className="navbtn" aria-label="Apps" title="Apps" onClick=${() => notInProto('Apps')}><${Icon} name="grid" size=${17} /></button>
+      <div className="navsep"></div>
+      ${[['gauge', 'Monitoring'], ['users', 'Team'], ['shield', 'Security']].map(([i, l]) => html`<button key=${l} className="navbtn" aria-label=${l} title=${l} onClick=${() => notInProto(l)}><${Icon} name=${i} size=${17} /></button>`)}
+      <div className="navfill"></div>
+      ${[['settings', 'Settings'], ['help', 'Help'], ['message', 'Feedback']].map(([i, l]) => html`<button key=${l} className="navbtn" aria-label=${l} title=${l} onClick=${() => notInProto(l)}><${Icon} name=${i} size=${17} /></button>`)}
+    </nav>
+
+    <main className="main">
+      ${view === 'pipeline' ? html`<header className="header phead">
+        <div className="h-left">
+          <${Tip} label="Back to pipelines"><button className="iconbtn" aria-label="Back to pipelines" onClick=${goList}><${Icon} name="chevL" size=${18} /></button></${Tip}>
+          <div className="tabseg" role="tablist" aria-label="Pipeline view">
+            <button role="tab" id="tab-runs" aria-selected=${tab === 'runs'} className=${tab === 'runs' ? 'on' : ''} onClick=${() => switchTab('runs')}>Past runs</button>
+            <button role="tab" id="tab-editor" aria-selected=${tab === 'editor'} className=${tab === 'editor' ? 'on' : ''} onClick=${() => switchTab('editor')}>Editor</button>
+          </div>
+        </div>
+        <div className="h-center">
+          ${renaming ? html`<input id="rename" className="inp rename" defaultValue=${pipe.name} autoFocus=${true}
+              onBlur=${(e) => { const v = e.target.value.trim(); if (v && v !== pipe.name) { setPipe({ name: v }); toast('Pipeline renamed'); } setRenaming(false); }}
+              onKeyDown=${(e) => { if (e.key === 'Enter') e.target.blur(); if (e.key === 'Escape') setRenaming(false); }} />`
+            : html`<h1 className="h-title" title="Click to rename" onClick=${() => setRenaming(true)}>${pipe.name}</h1>`}
+          <span className=${'pubbadge ' + headBadge[1]}><span className="dot"></span>${headBadge[0]}</span>
+        </div>
+        <div className="h-right">
+          <${Tip} label=${curAlerts ? `${curAlerts} alert${curAlerts > 1 ? 's' : ''} set` : 'No alerts set'}>
+            <button className=${'bellchip' + (curAlerts ? ' on' : '')} aria-label=${curAlerts ? `${curAlerts} alerts set` : 'No alerts set'} onClick=${() => openAlerts(currentId)}>
+              <${Icon} name="bell" size=${16} fill=${curAlerts ? 'currentColor' : 'none'} />${curAlerts > 0 && html`<span>${curAlerts}</span>`}</button></${Tip}>
+          ${run ? html`<div className="runpill"><span className="spin"></span>Running…
+              <${Tip} label="Stop run"><button className="stopbtn" aria-label="Stop run" onClick=${() => { runRef.current.stop = true; }}><${Icon} name="stop" size=${11} color="#F04438" /></button></${Tip}></div>`
+            : html`<div className="split">
+              <button className="btn btn-sec" onClick=${() => runPipeline(false)}><${Icon} name="play" size=${14} />Run now</button>
+              <button className="btn btn-sec caret" aria-label="More run options" onClick=${(e) => { e.stopPropagation(); setMenu(menu === 'run' ? null : 'run'); }}><${Icon} name="chevD" size=${15} /></button>
+              ${menu === 'run' && html`<div className="menu right" role="menu">
+                <button role="menuitem" onClick=${() => runPipeline(false)}><${Icon} name="play" size=${14} />Run now</button>
+                <button role="menuitem" onClick=${() => runPipeline(true)}><${Icon} name="reset" size=${14} />Run from failed</button></div>`}
+            </div>`}
+          <button className=${'btn ' + (hasChanges || pub === 'publishing' ? 'btn-pri' : 'btn-sec') + (pub === 'publishing' ? ' publishing' : '')} disabled=${pub === 'publishing'} onClick=${publish}
+              title=${hasChanges ? '' : 'No changes to publish'}>
+            ${pub === 'publishing' ? html`<span className="spin light"></span>Publishing…` : html`<${Icon} name="send" size=${14} />Publish`}</button>
+          <div className="split">
+            <button className="iconbtn bordered" aria-label="More actions" onClick=${(e) => { e.stopPropagation(); setMenu(menu === 'more' ? null : 'more'); }}><${Icon} name="more" size=${18} /></button>
+            ${menu === 'more' && html`<div className="menu right" role="menu">
+              <button role="menuitem" onClick=${() => setRenaming(true)}><${Icon} name="pencil" size=${14} />Rename pipeline</button>
+              ${pub !== 'draft' && html`<button role="menuitem" onClick=${() => { setPaused(!paused); setEdited(Date.now()); toast(paused ? 'Pipeline resumed' : 'Pipeline paused. Scheduled runs are on hold.'); }}>
+                <${Icon} name=${paused ? 'play' : 'pause'} size=${14} />${paused ? 'Resume pipeline' : 'Pause pipeline'}</button>`}
+              <div className="menusep"></div>
+              <button role="menuitem" className="danger" onClick=${() => { if (!busy()) setConfirm({ kind: 'deletePipeline', id: currentId }); }}><${Icon} name="trash" size=${14} />Delete pipeline</button></div>`}
+          </div>
+        </div>
+      </header>` : html`<header className="header"><div className="h-left"><h1 className="h-title static">Pipelines</h1></div>
+        <div className="h-right">
+          ${hint && html`<span className="newhint" aria-hidden="true">Start here: build a pipeline from scratch<${Icon} name="arrowRight" size=${14} sw=${2} /></span>`}
+          <button className=${'btn btn-pri' + (hint ? ' ringing' : '')} onClick=${openNew}><${Icon} name="plus" size=${15} />New Pipeline</button></div></header>`}
+
+      ${view === 'pipeline' && tab === 'runs' ? html`<${RunsView} key=${currentId} p=${curRec} activeRunId=${run ? run.id : null}
+            onStop=${() => { if (runRef.current) runRef.current.stop = true; }} onRunNow=${() => runPipeline(false)} onRunFromFailed=${() => runPipeline(true)}
+            onOpenEditor=${() => switchTab('editor')} onDiagnose=${openDiag} trigger=${trigger} nextRun=${nr} />`
+      : view === 'pipeline' ? html`<div className=${'canvas' + (!drawer && !diag && settingsOpen ? ' docked' : '')}>
+          ${failedNode && !run && !diag && html`<div className="failchip-canvas">
+            <span className="dot"></span><span>Last run failed at <b>${failedNode.name}</b></span>
+            <button className="btn btn-ai btn-sm" onClick=${diagnoseLatest}><${Icon} name="sparkles" size=${13} />Diagnose with AI</button></div>`}
+          <${Flow} nodes=${rfNodes} edges=${edges} nodeTypes=${nodeTypes} onNodesChange=${onNodesChange} onNodeClick=${onNodeClick}
+            onNodeDragStart=${() => { dragRef.current = Date.now() + 1e9; }} onNodeDragStop=${() => { dragRef.current = Date.now(); }}
+            nodesConnectable=${false} elementsSelectable=${false} deleteKeyCode=${null} selectionKeyCode=${null} multiSelectionKeyCode=${null}
+            zoomOnScroll=${false} panOnScroll=${true} preventScrolling=${true} zoomOnPinch=${true} zoomOnDoubleClick=${false}
+            minZoom=${0.3} maxZoom=${1.5} fitView=${true} fitViewOptions=${{ maxZoom: 1, padding: 0.35 }} nodeDragThreshold=${3}
+            proOptions=${{ hideAttribution: true }}>
+            ${Background && html`<${Background} gap=${16} size=${1.1} color="#CDD2DC" />`}
+          </${Flow}>
+          <${ZoomBar} />
+          <${Tip} label=${trigger ? 'Add a task' : 'Add a trigger'}><button className="fab" aria-label=${trigger ? 'Add a task' : 'Add a trigger'} onClick=${fab}><${Icon} name="plus" size=${18} sw=${2.2} /></button></${Tip}>
+          ${!drawer && !diag && (settingsOpen ? html`<${SettingsPanel} pipe=${pipe} setPipe=${setPipe} trigger=${trigger} paused=${paused} toast=${toast} onCollapse=${() => setSettingsOpen(false)} />`
+            : html`<button className="sp-open" onClick=${() => setSettingsOpen(true)}><${Icon} name="settings" size=${15} />Pipeline settings</button>`)}
+          ${drawer && html`<aside className="drawer" aria-label="Configure node" key=${drawer.view + (drawer.type || '') + (drawer.editId || '') + (drawer.tab || '')}>
+            ${drawer.view === 'list'
+              ? html`<${NodeList} list=${drawer.list} onClose=${() => setDrawer(null)} onPick=${(type) => setDrawer({ ...drawer, view: 'config', type })} />`
+              : html`<${ConfigForm} drawer=${{ ...drawer, toast }} nodes=${nodes} onClose=${() => setDrawer(null)}
+                  onBack=${() => setDrawer({ view: 'list', list: TYPES[drawer.type].kind === 'trigger' ? 'triggers' : 'tasks', parentId: drawer.parentId })}
+                  onSave=${saveNode} onTest=${testStep} />`}
+          </aside>`}
+        </div>`
+        : html`<${PipelinesList} pipelines=${pipelines.map((p) => ({ ...p, alerts: alertCount(p.id) }))} onOpen=${openPipeline} onRun=${listRun} onTogglePause=${togglePause}
+            onRename=${(id) => setModal({ kind: 'rename', id })} onDelete=${(id) => setConfirm({ kind: 'deletePipeline', id })} onNew=${openNew} onAlerts=${openAlerts} />`}
+      ${view === 'pipeline' && diagRun && html`<${DiagnosisPanel} key=${diagRun.id} p=${curRec} run=${diagRun} toast=${toast}
+          canRerun=${!run && lastDone(curRec)?.id === diagRun.id} onClose=${() => setDiag(null)} onOpenTask=${diagOpenTask}
+          onRerun=${() => { setDiag(null); runPipeline(true); }} />`}
+      ${alertsFor && html`<${AlertsDrawer} state=${alertsFor} setState=${setAlertsFor} pipelines=${pipelines} alerts=${alerts}
+          onSave=${saveAlert} onDelete=${(a) => setConfirm({ kind: 'deleteAlert', alert: a })} onClose=${closeAlerts} closing=${alertsClosing} />`}
+    </main>
+
+    ${modal && modal.kind === 'new' && html`<${NameModal} mode="create" taken=${pipelines.map((p) => p.name)} onSubmit=${createPipeline} onCancel=${() => setModal(null)} />`}
+    ${renameRec && html`<${NameModal} mode="rename" initial=${renameRec.name} taken=${pipelines.map((p) => p.name)} onSubmit=${(n) => renamePipeline(renameRec.id, n)} onCancel=${() => setModal(null)} />`}
+    ${delPipe && html`<${ConfirmModal} danger=${true} icon="trash" title=${`Delete ${delPipe.name}?`} confirmLabel="Delete pipeline"
+      body=${html`<span>Its schedule stops and its ${delPipe.nodes.length} step${delPipe.nodes.length === 1 ? '' : 's'} and run history are removed. You can undo this for a few seconds.</span>`}
+      onCancel=${() => setConfirm(null)} onConfirm=${() => deletePipeline(delPipe.id)} />`}
+    ${confirm && confirm.kind === 'deleteAlert' && html`<${ConfirmModal} danger=${true} icon="trash" title=${`Delete ${confirm.alert.name}?`} confirmLabel="Delete alert"
+      body=${`${confirm.alert.slack || 'Its recipients'} will stop getting these notifications${confirm.alert.pipelines.length > 1 ? ` for all ${confirm.alert.pipelines.length} pipelines` : ''}.`}
+      onCancel=${() => setConfirm(null)} onConfirm=${() => removeAlert(confirm.alert)} />`}
+    ${delTarget && html`<${ConfirmModal} danger=${true} icon="trash" title=${`Delete ${delTarget.name}?`} confirmLabel="Delete"
+      body=${delKids.length ? html`<span>${delKids.length === 1 ? `${delKids[0].name} depends on it` : `${delKids.length} tasks depend on it`}. ${delKids.length === 1 ? 'It' : 'They'} will run after <b>${delParent ? delParent.name : 'the trigger'}</b> instead.</span>` : 'This removes the step and its configuration from the pipeline.'}
+      onCancel=${() => setConfirm(null)} onConfirm=${() => { setConfirm(null); doDelete(delTarget.id); }} />`}
+    ${confirm && confirm.kind === 'publish' && html`<${ConfirmModal} icon="send" title=${`Publish ${pipe.name}?`} confirmLabel="Publish"
+      body=${html`<div className="pubsum">
+        <div><span>Environment</span><b>${env.label}</b></div>
+        <div><span>Trigger</span><b>${trigger.name}</b></div>
+        <div><span>Tasks</span><b>${tasks.length}</b></div>
+        <div><span>Compute</span><b>${COMPUTE.find((c) => c.id === pipe.compute).label}</b></div>
+        <div><span>Time out</span><b>${pipe.timeoutOn ? `${pipe.timeout} ${pipe.timeoutUnit}` : 'None'}</b></div>
+        <div><span>Concurrent runs</span><b>${pipe.concurrencyOn ? `Up to ${pipe.concurrency}` : '1 at a time'}</b></div>
+        <div><span>Next run</span><b>${nr.text}</b></div></div>`}
+      onCancel=${() => setConfirm(null)} onConfirm=${doPublish} />`}
+
+    <div className="toasts" aria-live="polite">${toasts.map((t) => html`<div key=${t.id} className=${'toast t-' + t.tone}>
+      <${Icon} name=${t.tone === 'error' ? 'alert' : t.tone === 'info' ? 'info' : 'checkCircle'} size=${16} /><span>${t.msg}</span>
+      ${t.action && html`<button onClick=${() => { t.action.fn(); setToasts((x) => x.filter((y) => y.id !== t.id)); }}>${t.action.label}</button>`}</div>`)}</div>
+
+    ${narrow && !forceDesktop && html`<div className="gate"><div className="gate-card">
+      <${Icon} name="monitor" size=${28} color="#7F56D9" />
+      <h2>Best viewed on desktop</h2>
+      <p>This pipeline builder is a desktop tool. Open it on a wider screen to drag, zoom and configure nodes comfortably.</p>
+      <button className="btn btn-pri" onClick=${() => { let embedded = true; try { embedded = window.self !== window.top; } catch (_) {}
+        if (embedded) { const u = new URL(location.href); u.searchParams.set('full', '1'); window.open(u.toString(), '_blank', 'noopener'); }
+        else setForceDesktop(true); }}>Open full screen</button></div></div>`}
+  </div></${Ctx.Provider}>`;
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(html`<${ReactFlowProvider}><${App} /></${ReactFlowProvider}>`);
+
+</script>
+
+</body></html>
